@@ -1,0 +1,332 @@
+<<<<<<< HEAD
+/* App.css */
+
+:root {
+    /* Define your color variables here */
+    --primary-color: #007bff;       /* Example: blue */
+    --secondary-color: #6c757d;    /* Example: gray */
+    --background-color: #f8f9fa;   /* Example: light gray */
+    --text-color: #343a40;          /* Example: dark gray */
+    --error-color: #dc3545;         /* Example: red */
+  }
+  
+  /* General Styles */
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+  
+  .app-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh; /* Ensure full height */
+  }
+  
+  .page-container {
+      padding: 20px;
+  }
+  
+  /* Header */
+  .app-header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+  
+  .app-header h1 {
+      margin: 0;
+      font-size: 24px;
+  }
+  
+  /* Menu Styles */
+  .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+  }
+  
+  .menu-item {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+  }
+  
+  .menu-image {
+      width: 100%;
+      max-height: 150px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin-bottom: 10px;
+  }
+  
+  /* Cart Styles */
+  .cart-container {
+      padding: 20px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+  }
+  
+  /* Bottom Navigation */
+  .bottom-nav {
+      background-color: var(--background-color); /* Match body background */
+      padding: 10px;
+      text-align: center; /* Center the buttons */
+      display: flex;          /* Use flexbox */
+      justify-content: space-around; /* Distribute buttons evenly */
+      align-items: center;    /* Vertically align items */
+  }
+  
+  .bottom-nav button {
+      background: none;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-color); /* Inherit text color */
+      display: flex;          /* Flex for icon and text */
+      flex-direction: column; /* Stack icon and text */
+      align-items: center;    /* Center items horizontally */
+      justify-content: center; /* Center items vertically */
+  }
+  
+  .bottom-nav button svg { /* Target the icons */
+      font-size: 1.5rem;    /* Make icons larger */
+      margin-bottom: 5px;   /* Space between icon and text */
+  }
+  
+  /* Drawer Styles */
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: -300px; /* Initially hidden */
+    width: 300px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease-in-out;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  
+  .drawer.open {
+    right: 0; /* Slide in */
+  }
+  
+  /* Login Form */
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between form elements */
+    max-width: 300px;
+    margin: 0 auto; /* Center the form */
+  }
+  
+  .login-form label {
+    font-weight: bold;
+  }
+  
+  .login-form input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .login-form button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .error-message {
+    color: var(--error-color);
+    margin-bottom: 10px;
+  }
+  
+  /* Content Container */
+  .content-container {
+      flex: 1; /* Take up remaining space */
+      padding: 20px;
+  }
+  
+  .cart-icon-button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+=======
+/* App.css */
+
+:root {
+    /* Define your color variables here */
+    --primary-color: #007bff;       /* Example: blue */
+    --secondary-color: #6c757d;    /* Example: gray */
+    --background-color: #f8f9fa;   /* Example: light gray */
+    --text-color: #343a40;          /* Example: dark gray */
+    --error-color: #dc3545;         /* Example: red */
+  }
+  
+  /* General Styles */
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+  
+  .app-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh; /* Ensure full height */
+  }
+  
+  .page-container {
+      padding: 20px;
+  }
+  
+  /* Header */
+  .app-header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+  
+  .app-header h1 {
+      margin: 0;
+      font-size: 24px;
+  }
+  
+  /* Menu Styles */
+  .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+  }
+  
+  .menu-item {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+  }
+  
+  .menu-image {
+      width: 100%;
+      max-height: 150px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin-bottom: 10px;
+  }
+  
+  /* Cart Styles */
+  .cart-container {
+      padding: 20px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+  }
+  
+  /* Bottom Navigation */
+  .bottom-nav {
+      background-color: var(--background-color); /* Match body background */
+      padding: 10px;
+      text-align: center; /* Center the buttons */
+      display: flex;          /* Use flexbox */
+      justify-content: space-around; /* Distribute buttons evenly */
+      align-items: center;    /* Vertically align items */
+  }
+  
+  .bottom-nav button {
+      background: none;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-color); /* Inherit text color */
+      display: flex;          /* Flex for icon and text */
+      flex-direction: column; /* Stack icon and text */
+      align-items: center;    /* Center items horizontally */
+      justify-content: center; /* Center items vertically */
+  }
+  
+  .bottom-nav button svg { /* Target the icons */
+      font-size: 1.5rem;    /* Make icons larger */
+      margin-bottom: 5px;   /* Space between icon and text */
+  }
+  
+  /* Drawer Styles */
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: -300px; /* Initially hidden */
+    width: 300px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease-in-out;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  
+  .drawer.open {
+    right: 0; /* Slide in */
+  }
+  
+  /* Login Form */
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between form elements */
+    max-width: 300px;
+    margin: 0 auto; /* Center the form */
+  }
+  
+  .login-form label {
+    font-weight: bold;
+  }
+  
+  .login-form input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .login-form button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .error-message {
+    color: var(--error-color);
+    margin-bottom: 10px;
+  }
+  
+  /* Content Container */
+  .content-container {
+      flex: 1; /* Take up remaining space */
+      padding: 20px;
+  }
+  
+  .cart-icon-button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+>>>>>>> c3b8893 (Nettoyage MenuList.js : notifications globales, suppression Snackbar local, imports propres)
+  

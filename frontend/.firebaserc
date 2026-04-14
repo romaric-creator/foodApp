@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "techfood-2025-apps",
+    "food": "techfood-app-2025",
+    "kl": "foodapp-84006",
+    "kll": "techfood-app-2025",
+    "j": "fir-demo-project",
+    "techfood": "techfood-2025-apps"
+  },
+  "targets": {},
+  "etags": {}
+}
