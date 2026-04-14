@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: foodapp-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: foodapp
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: foodapp-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      - FRONTEND_URL=http://localhost:3000
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - USER_SERVICE_URL=http://user-service:5002
+      - CATALOG_SERVICE_URL=http://catalog-service:5003
+      - ORDER_SERVICE_URL=http://order-service:5004
+      - TABLE_SERVICE_URL=http://table-service:5005
+      - KITCHEN_SERVICE_URL=http://kitchen-service:5006
+      - THEME_SERVICE_URL=http://theme-service:5007
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: foodapp-auth
+    environment:
+      - PORT=5001
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: foodapp-users
+    environment:
+      - PORT=5002
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: services/catalog-service/Dockerfile
+    container_name: foodapp-catalog
+    environment:
+      - PORT=5003
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: foodapp-orders
+    environment:
+      - PORT=5004
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - GATEWAY_URL=http://gateway:5000
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+      - gateway
+
+  table-service:
+    build:
+      context: .
+      dockerfile: services/table-service/Dockerfile
+    container_name: foodapp-tables
+    environment:
+      - PORT=5005
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  kitchen-service:
+    build:
+      context: .
+      dockerfile: services/kitchen-service/Dockerfile
+    container_name: foodapp-kitchen
+    environment:
+      - PORT=5006
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+  theme-service:
+    build:
+      context: .
+      dockerfile: services/theme-service/Dockerfile
+    container_name: foodapp-theme
+    environment:
+      - PORT=5007
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=foodapp
+      - JWT_SECRET=votre_secret_jwt
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:
