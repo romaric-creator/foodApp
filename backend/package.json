@@ -4,7 +4,7 @@
     "description": "Backend orchestration for GOURMI microservices",
     "main": "start-all.js",
     "scripts": {
-        "start": "node start-all.js"
+        "start": "nodemon start-all.js"
     },
     "dependencies": {
         "axios": "^1.6.2",
@@ -13,6 +13,7 @@
         "dotenv": "^17.4.2",
         "jsonwebtoken": "^9.0.3",
         "mysql2": "^3.16.0",
+        "nodemon": "^3.1.14",
         "sequelize": "^6.37.7"
     }
 }

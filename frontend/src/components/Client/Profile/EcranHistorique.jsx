@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  ThemeProvider,
-  createTheme,
   Container,
+  useTheme,
   Grid,
   Box,
   Card,
@@ -25,78 +24,10 @@ import { motion } from "framer-motion"; // Pour des animations fluides
 // Hook pour obtenir l'utilisateur (simplifié pour cet exemple, à remplacer par votre useAuth)
 const getAuthUser = () => JSON.parse(localStorage.getItem("user"));
 
-// Thème Material-UI personnalisé
-const theme = createTheme({
-  palette: {
-    primary: { main: "#4CAF50" }, // Vert pour le primaire
-    secondary: { main: "#F44336" }, // Rouge pour le secondaire (supprimer)
-    background: { default: "#F7F9FC", paper: "#FFFFFF" }, // Couleurs de fond plus douces
-    text: { primary: "#333333", secondary: "#666666" },
-  },
-  typography: {
-    fontFamily: ['"Inter"', 'sans-serif'].join(','),
-    h5: { fontWeight: 700, fontSize: "1.8rem" }, // Titre plus grand et gras
-    h6: { fontWeight: 600, fontSize: "1.2rem" },
-    subtitle1: { fontWeight: 600, fontSize: "1.1rem" },
-    body1: { fontSize: "1rem" },
-    body2: { fontSize: "0.9rem" },
-  },
-  shape: { borderRadius: 16 }, // Rayon de bordure global plus arrondi
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          transition: "transform 0.3s, box-shadow 0.3s",
-          "&:hover": {
-            transform: "translateY(-6px)", // Déplacement plus prononcé au survol
-            boxShadow: "0 12px 30px rgba(0,0,0,0.15)", // Ombre plus forte
-          },
-          borderRadius: 12, // Bordures arrondies pour les cartes
-        },
-      },
-    },
-    MuiToggleButtonGroup: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          backgroundColor: '#E0E0E0', // Fond pour le groupe de boutons
-        },
-      },
-    },
-    MuiToggleButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none', // Pas de majuscules automatiques
-          fontWeight: 500,
-          '&.Mui-selected': {
-            backgroundColor: 'primary.main',
-            color: 'white',
-            '&:hover': {
-              backgroundColor: 'primary.dark',
-            },
-          },
-          '&:hover': {
-            backgroundColor: 'rgba(0,0,0,0.05)',
-          },
-        },
-      },
-    },
-    MuiFab: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          transition: 'transform 0.2s',
-          '&:active': {
-            transform: 'scale(0.95)',
-          },
-        },
-      },
-    },
-  },
-});
-
 export default function EcranHistorique({ user, toast }) { // Ajout de toast comme prop
+  const theme = useTheme(); // Utilisation du thème global
+  const orangeColor = theme.palette.orange?.main || "#FF9800";
+
   const [historique, setHistorique] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("Tous");
@@ -222,10 +153,9 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
     window.scrollTo({ top: 0, behavior: "smooth" }), []);
 
   return (
-    <ThemeProvider theme={theme}>
-      <Box sx={{ bgcolor: "background.default", py: 4, minHeight: "100vh", position: "relative" }}>
+      <Box sx={{ bgcolor: "backgroundPanier.default", py: 4, minHeight: "100vh", position: "relative" }}>
         <Container maxWidth="lg">
-          <Typography variant="h5" align="center" gutterBottom color="primary.main" sx={{ mb: 4 }}>
+          <Typography variant="h5" align="center" gutterBottom sx={{ mb: 4, color: orangeColor, fontWeight: 800 }}>
             Historique des commandes
           </Typography>
 
@@ -339,6 +269,5 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
         </Box>
 
       </Box>
-    </ThemeProvider>
   );
 }

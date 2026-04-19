@@ -47,9 +47,10 @@ router.post('/register', async (req, res) => {
     // Initialiser le cookie (HTTP-only)
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       maxAge: 24 * 60 * 60 * 1000, // 24h
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     });
 
     res.status(201).json({
@@ -123,9 +124,10 @@ router.post('/login', async (req, res) => {
     // Initialiser le cookie (HTTP-only)
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       maxAge: 24 * 60 * 60 * 1000, // 24h
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     });
 
     console.log(`[Auth Service] ✓ Connexion réussie pour: ${user.email}`);

@@ -10,6 +10,7 @@ import {
   Fade,
   Zoom,
   Alert,
+  Fab,
 } from "@mui/material";
 import {
   Restaurant,
@@ -34,9 +35,9 @@ export default function MenuList() {
   const { idtable } = useParams();
 
   // New context hooks
-  const { user, isAuthenticated } = useApp();
+  const { user, isAuthenticated, login, register } = useApp();
   const { menus, categories, tables, loadMenus, loadCategories, loadTables } = useData();
-  const { orders: historique, loadOrders } = useOrders();
+  const { orders: historique, loadOrders, createOrder } = useOrders();
   const { showFeedback } = useNotification();
 
   // Local states
@@ -154,17 +155,16 @@ export default function MenuList() {
     setCommandeLoading(true);
     try {
       const total = panier.reduce((sum, i) => sum + i.price * i.quantite, 0);
-      // Use the context's order creation method
-      const { createOrder } = useOrders();
+      
       await createOrder({
-        idUsers: user.id,
+        idUsers: user.id || user.idUsers, // Supporter les deux formats possible
         idTab: idtable,
         items: panier.map(i => ({ idMenu: i.idMenu, quantite: i.quantite, price: i.price })),
         total
       });
       toast("Commande réussie");
       setPanier([]);
-      loadOrders(); // Reload orders
+      loadOrders(); // Recharger l'historique
     } catch (error) {
       console.error("Erreur commande:", error);
       toast("Erreur commande", "error");
@@ -173,8 +173,6 @@ export default function MenuList() {
   };
 
   const handleLogin = async (email, password) => {
-    // Login is now handled via useAuth hook
-    const { login } = useApp();
     setAuthLoading(true);
     try {
       await login(email, password);
@@ -187,7 +185,6 @@ export default function MenuList() {
   };
 
   const handleSignup = async (name, email, password) => {
-    const { register } = useApp();
     setAuthLoading(true);
     try {
       await register(name, email, password);

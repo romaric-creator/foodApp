@@ -9,7 +9,9 @@ import {
   Fab,
   InputAdornment,
   alpha,
-  useTheme
+  useTheme,
+  Paper,
+  IconButton
 } from "@mui/material";
 import { Search, Refresh, KeyboardArrowUp, RestaurantMenu as RestaurantIcon } from "@mui/icons-material";
 import { motion } from "framer-motion";

@@ -19,20 +19,28 @@ import {
   CheckCircle,
   Print as PrintIcon,
 } from "@mui/icons-material";
-import { useKitchen, useOrders } from "../../contexts/AppContext";
+import { useKitchen } from "../../contexts/AppContext";
+import { getKitchenStats } from "../../api/orders";
 
 const KitchenDashboard = () => {
   const [tab, setTab] = useState(0); // 0: pending, 1: preparing, 2: all
-  const { orders, getKitchenOrders, markPreparing, markServed, getKitchenStats, loading } = useKitchen();
+  const { markPreparing, markServed, getKitchenOrders } = useKitchen();
+  
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
 
   const fetchOrders = async () => {
     try {
-      await getKitchenOrders();
+      const data = await getKitchenOrders();
+      setOrders(Array.isArray(data) ? data : []);
+      
       const statsData = await getKitchenStats();
       setStats(statsData);
+      setLoading(false);
     } catch (error) {
       console.error("Erreur:", error);
+      setLoading(false);
     }
   };
 
@@ -66,19 +74,19 @@ const KitchenDashboard = () => {
   };
 
   const filteredOrders = orders.filter((order) => {
-    if (tab === 0) return order.statut === "pending";
-    if (tab === 1) return order.statut === "confirmed";
+    if (tab === 0) return order.statut === "en cours";
+    if (tab === 1) return order.statut === "prêt";
     return true;
   });
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "pending":
+      case "en cours":
         return "warning";
-      case "confirmed":
+      case "prêt":
         return "info";
-      case "served":
-        return "success";
+      case "annulée":
+        return "error";
       default:
         return "default";
     }
@@ -86,12 +94,12 @@ const KitchenDashboard = () => {
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case "pending":
-        return "En attente";
-      case "confirmed":
+      case "en cours":
         return "En préparation";
-      case "served":
-        return "Servie";
+      case "prêt":
+        return "Prêt à servir";
+      case "annulée":
+        return "Annulée";
       default:
         return status;
     }
@@ -150,15 +158,15 @@ const KitchenDashboard = () => {
         <Tabs value={tab} onChange={(e, v) => setTab(v)}>
           <Tab
             label={
-              <Badge badgeContent={orders.filter((o) => o.statut === "pending").length} color="error">
-                En attente
+              <Badge badgeContent={orders.filter((o) => o.statut === "en cours").length} color="error">
+                En préparation
               </Badge>
             }
           />
           <Tab
             label={
-              <Badge badgeContent={orders.filter((o) => o.statut === "confirmed").length} color="info">
-                En préparation
+              <Badge badgeContent={orders.filter((o) => o.statut === "prêt").length} color="info">
+                Prêts
               </Badge>
             }
           />
@@ -202,18 +210,7 @@ const KitchenDashboard = () => {
                 </Typography>
 
                 <Box display="flex" gap={1} mt={2}>
-                  {order.statut === "pending" && (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<AccessTime />}
-                      onClick={() => handleMarkAsPreparing(order.idOrder)}
-                      fullWidth
-                    >
-                      En préparation
-                    </Button>
-                  )}
-                  {order.statut === "confirmed" && (
+                  {order.statut === "en cours" && (
                     <Button
                       variant="contained"
                       color="success"
@@ -221,7 +218,17 @@ const KitchenDashboard = () => {
                       onClick={() => handleMarkAsServed(order.idOrder)}
                       fullWidth
                     >
-                      Servie
+                      Marquer Prêt
+                    </Button>
+                  )}
+                  {order.statut === "prêt" && (
+                    <Button
+                      variant="outlined"
+                      color="info"
+                      startIcon={<AccessTime />}
+                      onClick={() => handleMarkAsPreparing(order.idOrder)}
+                    >
+                      Remettre en cours
                     </Button>
                   )}
                   <Button

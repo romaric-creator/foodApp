@@ -10,6 +10,7 @@ const services = [
   { name: 'table-service', port: 5005, path: './services/table-service' },
   { name: 'kitchen-service', port: 5006, path: './services/kitchen-service' },
   { name: 'theme-service', port: 5007, path: './services/theme-service' },
+  { name: 'ai-service', port: 5008, path: './services/ai-service' },
 ];
 
 const processes = [];

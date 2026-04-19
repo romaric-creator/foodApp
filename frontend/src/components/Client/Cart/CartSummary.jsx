@@ -32,7 +32,7 @@ const CartSummary = ({ calculerTotal, handlePasserCommande, commandeLoading }) =
           Total
         </Typography>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
-          ${calculerTotal}
+          {calculerTotal} FCFA
         </Typography>
       </Box>
       <Button

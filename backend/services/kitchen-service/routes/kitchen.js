@@ -8,7 +8,7 @@ router.get('/orders/pending', async (req, res) => {
   try {
     const orders = await Order.findAll({
       where: {
-        statut: ['en cours', 'confirmed', 'pending']
+        statut: ['en cours', 'prêt']
       },
       include: [
         { model: Table, attributes: ['nom'] },
@@ -119,10 +119,10 @@ router.put('/orders/:id/prepare', async (req, res) => {
 
     await pool.execute(
       'UPDATE orders SET statut = ? WHERE idOrder = ?',
-      ['confirmed', orderId]
+      ['prêt', orderId]
     );
 
-    res.json({ message: 'Commande mise en préparation', idOrder: orderId });
+    res.json({ message: 'Commande prête', idOrder: orderId });
   } catch (error) {
     console.error('Erreur lors de la mise à jour:', error);
     res.status(500).json({ error: 'Erreur lors de la mise à jour' });
@@ -136,10 +136,10 @@ router.put('/orders/:id/serve', async (req, res) => {
 
     await pool.execute(
       'UPDATE orders SET statut = ? WHERE idOrder = ?',
-      ['served', orderId]
+      ['annulée', orderId]
     );
 
-    res.json({ message: 'Commande servie', idOrder: orderId });
+    res.json({ message: 'Commande servie / terminée', idOrder: orderId });
   } catch (error) {
     console.error('Erreur lors de la mise à jour:', error);
     res.status(500).json({ error: 'Erreur lors de la mise à jour' });
@@ -155,9 +155,9 @@ router.get('/stats/today', async (req, res) => {
       `SELECT 
         COUNT(*) as total_orders,
         SUM(total) as total_revenue,
-        COUNT(CASE WHEN statut = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN statut = 'confirmed' THEN 1 END) as confirmed_count,
-        COUNT(CASE WHEN statut = 'served' THEN 1 END) as served_count
+        COUNT(CASE WHEN statut = 'en cours' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN statut = 'prêt' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN statut = 'annulée' THEN 1 END) as served_count
        FROM orders
        WHERE DATE(created_at) = ?`,
       [today]

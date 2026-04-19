@@ -73,9 +73,19 @@ const QRDisplayModal = ({ open, onClose, selectedTable, qrData }) => {
               Token sécurisé généré le {new Date(qrData.timestamp).toLocaleString()}
             </Typography>
           )}
-          <Button variant="contained" onClick={handleDownloadQRCode} fullWidth>
-            Télécharger le QR Code
-          </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Button variant="contained" onClick={handleDownloadQRCode} fullWidth>
+              Télécharger le QR Code
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => window.open(qrValue, "_blank")}
+              fullWidth
+            >
+              Ouvrir la vue Client (Test)
+            </Button>
+          </Box>
         </Box>
       </Fade>
     </Modal>

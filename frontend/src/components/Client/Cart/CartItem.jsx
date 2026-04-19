@@ -60,7 +60,7 @@ const CartItem = ({ item, modifierQuantite }) => {
                 color: 'text.primary',
               }}
             >
-              ${formatPrice(item.price)}
+              {formatPrice(item.price)} FCFA
             </Typography>
           </Box>
 

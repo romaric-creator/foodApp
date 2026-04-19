@@ -173,7 +173,7 @@ const CategoryManager = () => {
       ) : (
         <Grid container spacing={2}>
           {filteredCategories.map((cat) => (
-            <Grid item xs={12} sm={6} key={cat.id}>
+            <Grid item xs={12} sm={6} key={cat.idCat || cat.id}>
               <Box sx={{
                 p: 2,
                 borderRadius: 2,

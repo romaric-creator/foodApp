@@ -19,6 +19,7 @@ const socketClient = io(gatewayUrl, {
 
 socketClient.on('connect', () => {
   console.log('✅ Order-service connecté au gateway via Socket.io');
+  socketClient.emit('join-orders');
 });
 
 socketClient.on('disconnect', () => {

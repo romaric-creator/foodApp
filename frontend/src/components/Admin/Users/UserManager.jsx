@@ -35,11 +35,14 @@ const UserManager = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter((user) => {
+    const nameStr = user.name || "";
+    const emailStr = user.email || "";
+    return (
+      nameStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emailStr.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -146,7 +149,7 @@ const UserManager = () => {
       ) : (
         <Grid container spacing={3}>
           {filteredUsers.map((user) => (
-            <Grid item xs={12} sm={6} md={4} key={user.id}>
+            <Grid item xs={12} sm={6} md={4} key={user.idUsers || user.id}>
               <Paper
                 elevation={1}
                 sx={{
@@ -163,19 +166,19 @@ const UserManager = () => {
                 }}
               >
                 <Avatar
-                  src={
-                    user.profileImage ||
-                    `https://via.placeholder.com/150?text=${user.name.charAt(
-                      0
-                    )}`
-                  }
+                  src={user.profileImage || undefined}
                   alt={user.name}
                   sx={{
                     width: 80,
                     height: 80,
                     mb: 2,
+                    bgcolor: 'primary.main',
+                    fontSize: '2rem',
+                    fontWeight: 'bold',
                   }}
-                />
+                >
+                  {!user.profileImage && user.name?.charAt(0).toUpperCase()}
+                </Avatar>
                 <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
                   {user.name}
                 </Typography>

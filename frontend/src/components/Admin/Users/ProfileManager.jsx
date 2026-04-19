@@ -15,12 +15,13 @@ export default function ProfileManager() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    const admin = JSON.parse(localStorage.getItem('admin'));
-    if (admin) {
+    // Le JWT et l'utilisateur sont stockés sous la clé "user"
+    const admin = JSON.parse(localStorage.getItem('user'));
+    if (admin && admin.role === 'admin') {
       setAdminProfile(admin);
       setProfileForm({ name: admin.name || '', email: admin.email || '', password: '' });
     } else {
-      navigate('/admin/login');
+      navigate('/login');
     }
   }, [navigate]);
 
@@ -59,7 +60,7 @@ export default function ProfileManager() {
 
   const handleLogout = async () => {
     logout();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   return (

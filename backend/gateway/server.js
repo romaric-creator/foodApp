@@ -13,7 +13,7 @@ const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
       const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(url => url.trim());
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -21,34 +21,45 @@ const io = new Server(server, {
     },
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  allowEIO3: true
 });
 
 const PORT = process.env.GATEWAY_PORT || 5000;
 
 // Configuration des services
 const services = {
-  auth: process.env.AUTH_SERVICE_URL || 'http://localhost:5001',
-  users: process.env.USER_SERVICE_URL || 'http://localhost:5002',
-  catalog: process.env.CATALOG_SERVICE_URL || 'http://localhost:5003',
-  orders: process.env.ORDER_SERVICE_URL || 'http://localhost:5004',
-  tables: process.env.TABLE_SERVICE_URL || 'http://localhost:5005',
-  kitchen: process.env.KITCHEN_SERVICE_URL || 'http://localhost:5006',
-  theme: process.env.THEME_SERVICE_URL || 'http://localhost:5007',
+  auth: process.env.AUTH_SERVICE_URL || 'http://127.0.0.1:5001',
+  users: process.env.USER_SERVICE_URL || 'http://127.0.0.1:5002',
+  catalog: process.env.CATALOG_SERVICE_URL || 'http://127.0.0.1:5003',
+  orders: process.env.ORDER_SERVICE_URL || 'http://127.0.0.1:5004',
+  tables: process.env.TABLE_SERVICE_URL || 'http://127.0.0.1:5005',
+  kitchen: process.env.KITCHEN_SERVICE_URL || 'http://127.0.0.1:5006',
+  theme: process.env.THEME_SERVICE_URL || 'http://127.0.0.1:5007',
+  ai: process.env.AI_SERVICE_URL || 'http://127.0.0.1:5008',
 };
 
 const fixRequestBody = (proxyReq, req, res) => {
-  if (req.body && Object.keys(req.body).length > 0) {
-    const bodyData = JSON.stringify(req.body);
-    proxyReq.setHeader('Content-Type', 'application/json');
-    proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-    proxyReq.write(bodyData);
-  }
-  if (req.headers['cookie']) {
-    proxyReq.setHeader('cookie', req.headers['cookie']);
-  }
-  if (req.headers['authorization']) {
-    proxyReq.setHeader('Authorization', req.headers['authorization']);
+  try {
+    if (req.body && Object.keys(req.body).length > 0) {
+      const bodyData = JSON.stringify(req.body);
+      if (!proxyReq.headersSent) {
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    }
+    // Priorité au token dans Authorization header (extrait du cookie)
+    const authHeader = req.headers['authorization'];
+    if (authHeader && !proxyReq.headersSent) {
+      proxyReq.setHeader('Authorization', authHeader);
+    }
+    // Fallback: cookie si pas d'Authorization
+    else if (req.headers['cookie'] && !proxyReq.headersSent) {
+      proxyReq.setHeader('cookie', req.headers['cookie']);
+    }
+  } catch (err) {
+    console.error('Erreur fixRequestBody:', err.message);
   }
 };
 
@@ -56,10 +67,11 @@ const fixRequestBody = (proxyReq, req, res) => {
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(url => url.trim());
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`[CORS] Origin not allowed: ${origin}`);
+      callback(null, false); // Accepter que CORS bloque au niveau du navigateur, sans crasher le serveur (Evite l'erreur 500)
     }
   },
   credentials: true
@@ -67,6 +79,14 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Extraire token du cookie et le mettre dans Authorization
+app.use((req, res, next) => {
+  if (req.cookies && req.cookies.token && !req.headers['authorization']) {
+    req.headers['authorization'] = `Bearer ${req.cookies.token}`;
+  }
+  next();
+});
 
 // Middleware pour logger les requêtes entrantes avec détails
 app.use((req, res, next) => {
@@ -202,6 +222,18 @@ app.use('/api/theme', httpProxy.createProxyMiddleware({
   }
 }));
 
+app.use('/api/ai', httpProxy.createProxyMiddleware({
+  target: services.ai,
+  changeOrigin: true, onProxyReq: fixRequestBody,
+  pathRewrite: {
+    '^/api/ai': '/api'
+  },
+  onError: (err, req, res) => {
+    console.error('Erreur ai-service:', err.message);
+    res.status(503).json({ error: 'Service IA indisponible' });
+  }
+}));
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('Client connecté:', socket.id);
@@ -224,30 +256,23 @@ io.on('connection', (socket) => {
     console.log(`Client ${socket.id} a quitté la room 'orders'`);
   });
 
-  socket.on('disconnect', () => {
-    console.log('Client déconnecté:', socket.id);
-  });
-});
-
-// Écouter les événements du order-service et les diffuser à tous les clients
-// Le order-service se connecte en tant que client et émet des événements
-// Ces événements sont automatiquement reçus par le serveur socket.io
-io.on('connection', (socket) => {
-  // Écouter les événements émis par les services (comme order-service)
+  // Écout des événements des services (order-service, etc.)
   socket.on('new-order', (data) => {
-    // Diffuser à tous les clients dans la room 'orders'
     io.to('orders').emit('new-order', data);
   });
 
   socket.on('order-status-updated', (data) => {
     io.to('orders').emit('order-status-updated', data);
-    // Également diffuser à la room spécifique de la commande
     io.to(`order-${data.id || data.idOrder}`).emit('order-status-updated', data);
   });
 
   socket.on('order-updated', (data) => {
     io.to('orders').emit('order-updated', data);
     io.to(`order-${data.id || data.idOrder}`).emit('order-updated', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client déconnecté:', socket.id);
   });
 });
 

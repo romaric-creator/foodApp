@@ -28,6 +28,7 @@ import {
   Restaurant as RestaurantIcon,
   Brightness4,
   Brightness7,
+  Psychology as AIIcon,
 } from "@mui/icons-material";
 import { ThemeSettingsContext } from "../../../theme/CustomThemeProvider";
 import OrderManager from "../Orders/OrderManager";
@@ -37,6 +38,8 @@ import UserManager from "../Users/UserManager";
 import ProfileManager from "../Users/ProfileManager";
 import QRCodeGenerator from "../Settings/QRCodeGenerator";
 import KitchenDashboard from "../../Kitchen/KitchenDashboard";
+import AdminAIAssistant from "../AI/AdminAIAssistant";
+import AIDashboard from "../AI/AIDashboard";
 import { useData } from "../../../contexts/AppContext";
 
 const drawerWidth = 260;
@@ -92,6 +95,8 @@ export default function Dashboard() {
         return <UserManager />;
       case "8":
         return <ProfileManager />;
+      case "9":
+        return <AIDashboard />;
       default:
         return (
           <OrderManager
@@ -110,6 +115,7 @@ export default function Dashboard() {
     { id: "4", text: "Menu", icon: <MenuBookIcon /> },
     { id: "5", text: "Catégories", icon: <CategoryIcon /> },
     { id: "6", text: "Utilisateurs", icon: <PeopleIcon /> },
+    { id: "9", text: "Gourmi IQ", icon: <AIIcon sx={{ color: '#D4AF37' }} /> },
     { id: "8", text: "Profil", icon: <AccountCircleIcon /> },
   ];
 

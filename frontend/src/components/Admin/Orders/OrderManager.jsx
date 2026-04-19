@@ -22,21 +22,16 @@ const OrderManager = ({ setCommandeSuccess, setCommandeError, menuMap, audioAllo
     setIsLoading(true);
     try {
       const commandesData = await fetchOrders();
-      const commandesWithDetails = await Promise.all(
-        commandesData.map(async (commande) => {
-          const userDoc = await fetchUserById(commande.idUsers);
-          const tableDoc = await fetchTableById(commande.idTab);
-          return {
-            ...commande,
-            userName: userDoc?.name || `Utilisateur inconnu (${commande.idUsers})`,
-            tableName: tableDoc?.nom || "Table inconnue",
-          };
-        })
-      );
-      setCommandes(commandesWithDetails);
+      // Le backend renvoie déjà user_name et table_name via les jointures Sequelize
+      const formattedData = commandesData.map(commande => ({
+        ...commande,
+        userName: commande.user_name || `Utilisateur inconnu (${commande.idUsers})`,
+        tableName: commande.table_name || "Table inconnue"
+      }));
+      setCommandes(formattedData);
     } catch (err) {
       console.error(
-        "Erreur lors du chargement des commandes ou des menus :",
+        "Erreur lors du chargement des commandes :",
         err
       );
       setCommandeError("Erreur lors du chargement des commandes.");
@@ -53,69 +48,48 @@ const OrderManager = ({ setCommandeSuccess, setCommandeError, menuMap, audioAllo
     socket.emit('join-orders');
 
     // Écouter les nouvelles commandes
-    socket.on('new-order', async (newOrder) => {
-      try {
-        const userDoc = await fetchUserById(newOrder.idUsers);
-        const tableDoc = await fetchTableById(newOrder.idTab);
-        const orderWithDetails = {
-          ...newOrder,
-          userName: userDoc?.name || `Utilisateur inconnu (${newOrder.idUsers})`,
-          tableName: tableDoc?.nom || "Table inconnue",
-        };
-        setCommandes(prev => {
-          const exists = prev.find(c => c.id === newOrder.id || c.idOrder === newOrder.idOrder);
-          if (exists) return prev;
-          return [orderWithDetails, ...prev];
-        });
-      } catch (err) {
-        console.error("Erreur lors de l'ajout de la nouvelle commande:", err);
-      }
+    socket.on('new-order', (newOrder) => {
+      const orderWithDetails = {
+        ...newOrder,
+        userName: newOrder.user_name || newOrder.userName || `Utilisateur inconnu (${newOrder.idUsers})`,
+        tableName: newOrder.table_name || newOrder.tableName || "Table inconnue",
+      };
+      setCommandes(prev => {
+        const exists = prev.find(c => c.id === newOrder.id || c.idOrder === newOrder.idOrder);
+        if (exists) return prev;
+        return [orderWithDetails, ...prev];
+      });
     });
 
     // Écouter les mises à jour de statut
-    socket.on('order-status-updated', async (updatedOrder) => {
-      try {
-        const userDoc = await fetchUserById(updatedOrder.idUsers);
-        const tableDoc = await fetchTableById(updatedOrder.idTab);
-        const orderWithDetails = {
-          ...updatedOrder,
-          userName: userDoc?.name || `Utilisateur inconnu (${updatedOrder.idUsers})`,
-          tableName: tableDoc?.nom || "Table inconnue",
-        };
-        setCommandes(prev => prev.map(c => 
-          (c.id === updatedOrder.id || c.idOrder === updatedOrder.idOrder) 
-            ? orderWithDetails 
-            : c
-        ));
-      } catch (err) {
-        console.error("Erreur lors de la mise à jour de la commande:", err);
-      }
+    socket.on('order-status-updated', (updatedOrder) => {
+      const orderWithDetails = {
+        ...updatedOrder,
+        userName: updatedOrder.user_name || updatedOrder.userName || `Utilisateur inconnu (${updatedOrder.idUsers})`,
+        tableName: updatedOrder.table_name || updatedOrder.tableName || "Table inconnue",
+      };
+      setCommandes(prev => prev.map(c => 
+        (c.id === updatedOrder.id || c.idOrder === updatedOrder.idOrder) 
+          ? orderWithDetails 
+          : c
+      ));
     });
 
     // Écouter les mises à jour générales
-    socket.on('order-updated', async (updatedOrder) => {
-      try {
-        const userDoc = await fetchUserById(updatedOrder.idUsers);
-        const tableDoc = await fetchTableById(updatedOrder.idTab);
-        const orderWithDetails = {
-          ...updatedOrder,
-          userName: userDoc?.name || `Utilisateur inconnu (${updatedOrder.idUsers})`,
-          tableName: tableDoc?.nom || "Table inconnue",
-        };
-        setCommandes(prev => {
-          const exists = prev.find(c => c.id === updatedOrder.id || c.idOrder === updatedOrder.idOrder);
-          if (exists) {
-            return prev.map(c => 
-              (c.id === updatedOrder.id || c.idOrder === updatedOrder.idOrder) 
-                ? orderWithDetails 
-                : c
-            );
-          }
-          return [orderWithDetails, ...prev];
-        });
-      } catch (err) {
-        console.error("Erreur lors de la mise à jour de la commande:", err);
-      }
+    socket.on('order-updated', (updatedOrder) => {
+      const orderWithDetails = {
+        ...updatedOrder,
+        userName: updatedOrder.user_name || updatedOrder.userName || `Utilisateur inconnu (${updatedOrder.idUsers})`,
+        tableName: updatedOrder.table_name || updatedOrder.tableName || "Table inconnue",
+      };
+      setCommandes(prev => {
+        const idMatch = c => c.id === updatedOrder.id || c.idOrder === updatedOrder.idOrder;
+        const exists = prev.find(idMatch);
+        if (exists) {
+          return prev.map(c => idMatch(c) ? orderWithDetails : c);
+        }
+        return [orderWithDetails, ...prev];
+      });
     });
 
     return () => {
@@ -142,11 +116,11 @@ const OrderManager = ({ setCommandeSuccess, setCommandeError, menuMap, audioAllo
 
   const generateOrderHtml = (commande) => {
     const items = Array.isArray(commande.items) ? commande.items : [];
-    const total = items.reduce((sum, item) => sum + (item.quantite || 1) * item.price, 0).toFixed(2);
+    const total = items.reduce((sum, item) => sum + (item.quantity || item.quantite || 1) * item.price, 0).toFixed(2);
     const itemsHtml = items.map(item => `
       <tr>
         <td style="padding:5px; border:1px solid #ddd;">${menuMap[item.idMenu] || "Menu Non Trouvé"}</td>
-        <td style="padding:5px; border:1px solid #ddd; text-align:center;">${item.quantite || 1}</td>
+        <td style="padding:5px; border:1px solid #ddd; text-align:center;">${item.quantity || item.quantite || 1}</td>
         <td style="padding:5px; border:1px solid #ddd; text-align:right;">${item.price} FCFA</td>
       </tr>
     `).join("");
@@ -269,7 +243,7 @@ const OrderManager = ({ setCommandeSuccess, setCommandeError, menuMap, audioAllo
                     Table : {commande.tableName || "Non spécifiée"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Total : {commande.items.reduce((sum, item) => sum + (item.quantite || 1) * item.price, 0).toFixed(2)} FCFA
+                    Total : {commande.items.reduce((sum, item) => sum + (item.quantity || item.quantite || 1) * item.price, 0).toFixed(2)} FCFA
                   </Typography>
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
@@ -277,7 +251,7 @@ const OrderManager = ({ setCommandeSuccess, setCommandeError, menuMap, audioAllo
                     </Typography>
                     {commande.items.map((item, idx) => (
                       <Typography key={idx} variant="body2" color="text.secondary">
-                        - {menuMap[item.idMenu] || "Menu Non Trouvé"} (x{item.quantite || 1})
+                        - {menuMap[item.idMenu] || item.menu_name || "Menu Non Trouvé"} (x{item.quantity || item.quantite || 1})
                       </Typography>
                     ))}
                   </Box>

@@ -29,8 +29,11 @@ router.get('/generate/:tableId', async (req, res) => {
     const token = hmac.digest('hex');
     
     // URL du QR Code (sera utilisé côté client)
-    const serverUrl = process.env.SERVER_URL || 'http://menu.local';
-    const qrUrl = `${serverUrl}/client/${tableId}?token=${token}&t=${timestamp}`;
+    let frontendUrl = 'http://localhost:3000';
+    if (process.env.FRONTEND_URL) {
+      frontendUrl = process.env.FRONTEND_URL.split(',')[0].trim();
+    }
+    const qrUrl = `${frontendUrl}/client/${tableId}?token=${token}&t=${timestamp}`;
     
     res.json({
       tableId: table.idTab,
