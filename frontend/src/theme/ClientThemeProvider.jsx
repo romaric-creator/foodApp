@@ -6,7 +6,7 @@ const ClientThemeProvider = ({ children }) => {
     return createTheme({
       palette: {
         mode: 'light',
-        primary: { main: "#FF9800" }, // Orange en couleur principale pour le client
+        primary: { main: "#FF9800" }, // Orange original
         secondary: { main: "#1a202c" },
         background: { default: "#FBFBFB", paper: "#FFFFFF" },
         text: { primary: "#1a202c", secondary: "#6b7280" },

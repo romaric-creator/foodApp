@@ -13,13 +13,13 @@ const CartSummary = ({ calculerTotal, handlePasserCommande, commandeLoading }) =
   return (
     <Box sx={{
       position: 'fixed',
-      bottom: 0,
+      bottom: '74px', // Au-dessus de la BottomNavigation
       left: 0,
       right: 0,
       bgcolor: theme.palette.backgroundPanier.paper,
-      boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
+      boxShadow: '0 -10px 30px rgba(0,0,0,0.1)',
       p: 3,
-      borderRadius: '20px 20px 0 0',
+      borderRadius: '30px 30px 0 0',
       zIndex: 1200,
     }}>
       <Box sx={{
@@ -32,7 +32,7 @@ const CartSummary = ({ calculerTotal, handlePasserCommande, commandeLoading }) =
           Total
         </Typography>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
-          {calculerTotal} FCFA
+          {calculerTotal()} FCFA
         </Typography>
       </Box>
       <Button

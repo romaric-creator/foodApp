@@ -15,25 +15,24 @@ import {
   Fab,
   Zoom,
   Chip,
+  alpha
 } from "@mui/material";
-import { Delete as DeleteIcon, KeyboardArrowUp } from "@mui/icons-material";
+import { Delete as DeleteIcon, KeyboardArrowUp, ReceiptLong } from "@mui/icons-material";
 import { fetchOrders, cancelOrder } from "../../../services/orderService";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion"; // Pour des animations fluides
+import { connectSocket } from "../../../services/socketService";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Hook pour obtenir l'utilisateur (simplifié pour cet exemple, à remplacer par votre useAuth)
 const getAuthUser = () => JSON.parse(localStorage.getItem("user"));
 
-export default function EcranHistorique({ user, toast }) { // Ajout de toast comme prop
-  const theme = useTheme(); // Utilisation du thème global
-  const orangeColor = theme.palette.orange?.main || "#FF9800";
-
+export default function EcranHistorique({ user, toast }) {
+  const theme = useTheme();
   const [historique, setHistorique] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("Tous");
   const [showTop, setShowTop] = useState(false);
 
-  const currentUser = useMemo(() => user || getAuthUser(), [user]); // Mémorise l'utilisateur
+  const primaryColor = theme.palette.primary.main;
+  const currentUser = useMemo(() => user || getAuthUser(), [user]);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -48,7 +47,6 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
         const userOrders = orders.filter(order => order.idUsers === currentUser.id);
         setHistorique(userOrders);
       } catch (error) {
-        console.error("Erreur lors de la récupération de l'historique :", error);
         if (toast) toast("Erreur de chargement de l'historique.", "error");
       } finally {
         setLoading(false);
@@ -57,11 +55,9 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
 
     loadHistorique();
 
-    // Connexion Socket.io pour le temps réel
     const socket = connectSocket();
     socket.emit('join-orders');
 
-    // Écouter les nouvelles commandes de l'utilisateur
     socket.on('new-order', (newOrder) => {
       if (newOrder.idUsers === currentUser.id) {
         setHistorique(prev => {
@@ -72,7 +68,6 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
       }
     });
 
-    // Écouter les mises à jour de statut
     socket.on('order-status-updated', (updatedOrder) => {
       if (updatedOrder.idUsers === currentUser.id) {
         setHistorique(prev => prev.map(o => 
@@ -83,191 +78,179 @@ export default function EcranHistorique({ user, toast }) { // Ajout de toast com
       }
     });
 
-    // Écouter les mises à jour générales
-    socket.on('order-updated', (updatedOrder) => {
-      if (updatedOrder.idUsers === currentUser.id) {
-        setHistorique(prev => {
-          const exists = prev.find(o => o.id === updatedOrder.id || o.idOrder === updatedOrder.idOrder);
-          if (exists) {
-            return prev.map(o => 
-              (o.id === updatedOrder.id || o.idOrder === updatedOrder.idOrder) 
-                ? updatedOrder 
-                : o
-            );
-          }
-          return [updatedOrder, ...prev];
-        });
-      }
-    });
-
     return () => {
       socket.off('new-order');
       socket.off('order-status-updated');
-      socket.off('order-updated');
       socket.emit('leave-orders');
     };
   }, [currentUser, toast]);
 
   const viderHistorique = useCallback(async () => {
-    if (!currentUser?.id) {
-      if (toast) toast("Vous devez être connecté pour vider l'historique.", "info");
-      return;
-    }
-    // Demander confirmation à l'utilisateur avant de vider
-    if (!window.confirm("Êtes-vous sûr de vouloir vider votre historique de commandes ?")) {
-      return;
-    }
+    if (!currentUser?.id) return;
+    if (!window.confirm("Voulez-vous vraiment vider votre historique ?")) return;
 
     try {
-      if (historique.length === 0) {
-        if (toast) toast("L'historique est déjà vide.", "info");
-        return;
-      }
-      // Annuler toutes les commandes en cours
       const cancelPromises = historique
         .filter(order => order.statut === "en cours")
         .map(order => cancelOrder(order.idOrder || order.id, "annulée"));
       await Promise.all(cancelPromises);
       setHistorique([]);
-      if (toast) toast("Historique vidé avec succès !", "success");
+      if (toast) toast("Historique vidé !");
     } catch (error) {
-      console.error("Erreur lors de la suppression de l'historique :", error);
-      if (toast) toast("Échec de la suppression de l'historique.", "error");
+      if (toast) toast("Échec de la suppression.", "error");
     }
   }, [currentUser, historique, toast]);
 
   const filtered = useMemo(() => {
-    return filter === "Tous"
-      ? historique
-      : historique.filter(o => o.statut === filter);
+    return filter === "Tous" ? historique : historique.filter(o => o.statut === filter);
   }, [historique, filter]);
 
-  // Défilement
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const scrollToTop = useCallback(() =>
-    window.scrollTo({ top: 0, behavior: "smooth" }), []);
-
   return (
-      <Box sx={{ bgcolor: "backgroundPanier.default", py: 4, minHeight: "100vh", position: "relative" }}>
-        <Container maxWidth="lg">
-          <Typography variant="h5" align="center" gutterBottom sx={{ mb: 4, color: orangeColor, fontWeight: 800 }}>
-            Historique des commandes
-          </Typography>
+    <Box sx={{ bgcolor: '#F8F9FA', minHeight: '100vh', pb: 12 }}>
+      {/* Header Premium */}
+      <Box sx={{ 
+        pt: 6, pb: 4, px: 3, 
+        background: `linear-gradient(45deg, ${primaryColor}, ${theme.palette.primary.dark})`,
+        borderRadius: '0 0 40px 40px',
+        color: 'white',
+        mb: 4
+      }}>
+        <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -1, mb: 1 }}>
+          Mes Commandes
+        </Typography>
+        <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
+          Suivez l'état de vos préparations en temps réel
+        </Typography>
+      </Box>
 
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 4 }}>
-            <ToggleButtonGroup
-              value={filter}
-              exclusive
-              onChange={(_, v) => v && setFilter(v)}
-              aria-label="statut"
-              sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-            >
-              {["Tous", "en cours", "prêt", "annulée"].map(s => (
-                <ToggleButton key={s} value={s} aria-label={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
+      <Container maxWidth="xs">
+        {/* Filtres modernisés */}
+        <Box sx={{ mb: 4, overflowX: 'auto', display: 'flex', gap: 1, pb: 1, '::-webkit-scrollbar': { display: 'none' } }}>
+          {["Tous", "en cours", "prêt", "annulée"].map(s => (
+            <Chip
+              key={s}
+              label={s === "Tous" ? "Tout" : s.charAt(0).toUpperCase() + s.slice(1)}
+              onClick={() => setFilter(s)}
+              sx={{
+                borderRadius: '12px',
+                fontWeight: 800,
+                bgcolor: filter === s ? primaryColor : 'white',
+                color: filter === s ? 'white' : 'text.primary',
+                boxShadow: filter === s ? `0 4px 12px ${alpha(primaryColor, 0.3)}` : 'none',
+                border: '1px solid',
+                borderColor: filter === s ? primaryColor : 'rgba(0,0,0,0.05)',
+                transition: 'all 0.2s',
+              }}
+            />
+          ))}
+        </Box>
+
+        {loading ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {[1, 2, 3].map(i => <Skeleton key={i} variant="rectangular" height={160} sx={{ borderRadius: '24px' }} />)}
           </Box>
-
-          {loading ? (
-            <Grid container spacing={3}>
-              {Array.from({ length: 3 }).map((_, i) => ( // Moins de skeletons pour la rapidité
-                <Grid key={i} item xs={12} sm={6} md={4}>
-                  <Card sx={{ p: 2 }}>
-                    <Skeleton variant="text" height={40} width="60%" />
-                    <Skeleton variant="text" height={20} width="80%" sx={{ mb: 1 }} />
-                    <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 1 }} />
-                    <Skeleton variant="text" height={30} width="50%" sx={{ mt: 2, ml: 'auto' }} />
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : filtered.length === 0 ? (
-            <Box sx={{ textAlign: "center", mt: 8, p: 4, bgcolor: 'background.paper', borderRadius: 3, boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                {filter === "Tous" ? "Aucune commande trouvée." : `Aucune commande avec le statut "${filter}".`}
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Passez votre première commande dès maintenant !
-              </Typography>
-            </Box>
-          ) : (
-            <Grid container spacing={3}>
-              {filtered.map(order => (
-                <Grid key={order.id} item xs={12} sm={6} md={4}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.1 * filtered.indexOf(order) }}
-                  >
-                    <Card sx={{ borderLeft: `5px solid ${order.statut === 'en cours' ? theme.palette.primary.main : order.statut === 'prêt' ? '#4CAF50' : order.statut === 'annulée' ? theme.palette.secondary.main : 'grey.400'}` }}>
-                      <CardContent>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                          <Typography variant="h6" color="primary.main">
-                            Commande #{order.id.substring(0, 8)} {/* Troncature pour la concision */}
+        ) : filtered.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 10 }}>
+            <ReceiptLong sx={{ fontSize: 80, color: 'text.disabled', opacity: 0.1, mb: 2 }} />
+            <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.secondary' }}>Aucune commande</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.6 }}>Votre historique est vide pour le moment.</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <AnimatePresence>
+              {filtered.map((order, idx) => (
+                <motion.div
+                  key={order.id || order.idOrder}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <Card sx={{ 
+                    borderRadius: '24px', 
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
+                    border: '1px solid rgba(0,0,0,0.02)',
+                    overflow: 'hidden'
+                  }}>
+                    <CardContent sx={{ p: 2.5 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'text.primary', opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                            #{String(order.id || order.idOrder || '').substring(0, 8)}
                           </Typography>
-                          <Chip label={order.statut.charAt(0).toUpperCase() + order.statut.slice(1)} 
-                                color={order.statut === 'en cours' ? 'primary' : order.statut === 'prêt' ? 'success' : 'error'} 
-                                size="small" sx={{ fontWeight: 'bold' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 800, mt: 0.5 }}>
+                            {new Date(order.timestamp).toLocaleDateString("fr-FR", { day: 'numeric', month: 'short' })} • {new Date(order.timestamp).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
                         </Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Date: {new Date(order.timestamp).toLocaleDateString("fr-FR")} à {new Date(order.timestamp).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Utilisateur: {order.userName || "Non spécifié"}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          Table: {order.tableName || order.idTab || "Non spécifiée"}
-                        </Typography>
+                        <Chip 
+                          label={order.statut} 
+                          size="small"
+                          sx={{ 
+                            fontWeight: 900, 
+                            fontSize: '0.65rem',
+                            textTransform: 'uppercase',
+                            bgcolor: order.statut === 'en cours' ? alpha(primaryColor, 0.1) : order.statut === 'prêt' ? '#E8F5E9' : '#FFEBEE',
+                            color: order.statut === 'en cours' ? primaryColor : order.statut === 'prêt' ? '#2E7D32' : '#C62828'
+                          }} 
+                        />
+                      </Box>
 
-                        {order.items.map((it, idx) => (
-                          <Box key={idx} sx={{ display: "flex", alignItems: "center", mb: 1.5, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-                            <Avatar src={it.image_url || "https://placehold.co/40x40/E0E0E0/666666?text=🍽️"} sx={{ mr: 2, width: 40, height: 40 }} />
-                            <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="body1" sx={{ fontWeight: 'medium' }}>{it.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {it.quantite} × {it.price.toLocaleString("fr-FR")} FCFA
-                              </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        {order.items.map((it, i) => (
+                          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar src={it.image_url} variant="rounded" sx={{ width: 40, height: 40, borderRadius: '10px' }} />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{it.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">Qté: {it.quantite}</Typography>
                             </Box>
-                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                                {(it.quantite * it.price).toLocaleString("fr-FR")} FCFA
+                            <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                              {(it.quantite * it.price).toLocaleString()} <span style={{ fontSize: '0.6rem' }}>FCFA</span>
                             </Typography>
                           </Box>
                         ))}
-                        <Divider sx={{ my: 2 }} />
-                        <Typography variant="h6" align="right" color="text.primary">
-                          Total :{" "}
-                          {order.items
-                            .reduce((sum, x) => sum + x.quantite * x.price, 0)
-                            .toLocaleString("fr-FR")} FCFA
+                      </Box>
+
+                      <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
+
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>Total</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 900, color: primaryColor }}>
+                          {order.items.reduce((s, x) => s + x.quantite * x.price, 0).toLocaleString()} <span style={{ fontSize: '0.7rem' }}>FCFA</span>
                         </Typography>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </Grid>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
-            </Grid>
-          )}
-        </Container>
+            </AnimatePresence>
+          </Box>
+        )}
+      </Container>
 
-        {/* Conteneur pour les boutons flottants */}
-        <Box sx={{ position: "fixed", bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Fab color="secondary" onClick={viderHistorique} aria-label="vider" sx={{ transition: 'all 0.3s ease-in-out', '&:hover': { transform: 'scale(1.1)' } }}>
-                <DeleteIcon />
-            </Fab>
-            <Zoom in={showTop}>
-                <Fab color="primary" onClick={scrollToTop} aria-label="haut" sx={{ transition: 'all 0.3s ease-in-out', '&:hover': { transform: 'scale(1.1)' } }}>
-                    <KeyboardArrowUp />
-                </Fab>
-            </Zoom>
-        </Box>
-
+      {/* FAB Actions */}
+      <Box sx={{ position: "fixed", bottom: 100, right: 20, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Fab 
+          size="small" 
+          onClick={viderHistorique} 
+          sx={{ bgcolor: 'white', color: 'error.main', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <DeleteIcon />
+        </Fab>
+        <Zoom in={showTop}>
+          <Fab 
+            size="medium" 
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            sx={{ bgcolor: primaryColor, color: 'white', boxShadow: `0 8px 20px ${alpha(primaryColor, 0.4)}` }}
+          >
+            <KeyboardArrowUp />
+          </Fab>
+        </Zoom>
       </Box>
+    </Box>
   );
 }

@@ -18,12 +18,16 @@ import {
 	IconButton,
 } from "@mui/material";
 import DeleteIcon from '@mui/icons-material/Delete';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import SearchIcon from '@mui/icons-material/Search';
+import api from "../../../config/api";
 
 // Importation des services et hooks
 import { createMenu, updateMenu, deleteMenu } from "../../../services/menuService";
 // Upload d'image : pour l'instant, on accepte juste une URL
 // TODO: Implémenter un endpoint API pour l'upload d'images
 import { useForm } from "../../../hooks/useForm";
+import { useSafeAction } from "../../../hooks/useSafeAction";
 import ImageUpload from "./ImageUpload";
 import DeleteMenuModal from "./DeleteMenuModal";
 
@@ -38,11 +42,10 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 		},
 		(values) => {
 			const errors = {};
-			if (!values.name.trim()) errors.name = "Le nom est requis.";
-			if (!values.description.trim()) errors.description = "La description est requise.";
-			if (!values.price.trim()) errors.price = "Le prix est requis.";
+			if (!values.name?.toString().trim()) errors.name = "Le nom est requis.";
+			if (!values.description?.toString().trim()) errors.description = "La description est requise.";
+			if (!values.price?.toString().trim()) errors.price = "Le prix est requis.";
 			if (!values.categoryId) errors.categoryId = "La catégorie est requise.";
-			if (!existingMenu && !imageFile) errors.imageFile = "Une image est requise.";
 			return errors;
 		}
 	);
@@ -58,6 +61,75 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 		severity: "error",
 	});
 	const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [isResearching, setIsResearching] = useState(false);
+	const [isGenerating, setIsGenerating] = useState(false);
+
+	// Recherche approfondie IA
+	const handleAIResearch = async () => {
+		if (!values.name.trim()) {
+			setSnackbar({ open: true, message: "Saisissez un nom de plat d'abord.", severity: "warning" });
+			return;
+		}
+
+		setIsResearching(true);
+		try {
+			const categoryName = categories.find(c => (c.idCat || c.id) === values.categoryId)?.name || "";
+			
+			const response = await api.post('/ai/tools/research-menu', {
+				name: values.name,
+				category: categoryName
+			});
+
+			const { marketing_description, suggested_price_fcfa } = response.data;
+
+			handleChange({ target: { name: "description", value: marketing_description } });
+			if (suggested_price_fcfa && !values.price) {
+				handleChange({ target: { name: "price", value: suggested_price_fcfa.toString() } });
+			}
+
+			setSnackbar({ open: true, message: "Recherche culinaire terminée !", severity: "success" });
+		} catch (error) {
+			console.error("AI Research error:", error);
+			setSnackbar({ open: true, message: "Erreur lors de la recherche IA.", severity: "error" });
+		} finally {
+			setIsResearching(false);
+		}
+	};
+
+	// Génération IA classique
+	const handleAIGenerate = async () => {
+		if (!values.name.trim()) {
+			setSnackbar({ open: true, message: "Saisissez un nom de plat d'abord.", severity: "warning" });
+			return;
+		}
+
+		setIsGenerating(true);
+		try {
+			// Trouver le nom de la catégorie pour donner du contexte à l'IA
+			const categoryName = categories.find(c => (c.idCat || c.id) === values.categoryId)?.name || "";
+			
+			const response = await api.post('/ai/tools/describe-item', {
+				name: values.name,
+				category: categoryName,
+				image: imagePreview // Envoi de l'image (base64 ou URL)
+			});
+
+			const { description, suggested_price_fcfa } = response.data;
+
+			// Mettre à jour les champs du formulaire
+			handleChange({ target: { name: "description", value: description } });
+			if (suggested_price_fcfa && !values.price) {
+				handleChange({ target: { name: "price", value: suggested_price_fcfa.toString() } });
+			}
+
+			setSnackbar({ open: true, message: "Description générée avec succès !", severity: "success" });
+		} catch (error) {
+			console.error("AI Generation error:", error);
+			setSnackbar({ open: true, message: "Erreur lors de la génération IA.", severity: "error" });
+		} finally {
+			setIsGenerating(false);
+		}
+	};
 
 	// Chargement des catégories
 	useEffect(() => {
@@ -65,6 +137,7 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 			try {
 				const data = await fetchCategories();
 				setCategories(data);
+				// Définir la catégorie par défaut si on crée un nouveau menu
 				if (!existingMenu && data.length > 0 && !values.categoryId) {
 					handleChange({ target: { name: "categoryId", value: data[0].idCat || data[0].id } });
 				}
@@ -79,7 +152,9 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 		};
 
 		loadCategories();
-	}, [existingMenu, values.categoryId, handleChange]);
+		// On ne veut charger les catégories qu'une seule fois au montage
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Gestion du changement d'image
 	const handleImageChange = (e) => {
@@ -229,6 +304,7 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 				{/* Colonne du formulaire */}
 				<Grid item xs={12} md={6}>
 					<Box component="form" onSubmit={handleSubmit(submitForm)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }} autoComplete="off">
+
 						<TextField
 							label="Nom du menu"
 							name="name"
@@ -240,6 +316,27 @@ const MenuForm = ({ existingMenu, onSuccess }) => {
 							error={!!errors.name}
 							helperText={errors.name}
 						/>
+
+						<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+							<Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+								DESCRIPTION DU PLAT
+							</Typography>
+							<Button
+								size="small"
+								startIcon={isGenerating ? <CircularProgress size={14} /> : <AutoAwesomeIcon />}
+								onClick={handleAIGenerate}
+								disabled={isGenerating || !values.name}
+								sx={{ 
+									textTransform: 'none', 
+									fontSize: '0.75rem',
+									borderRadius: 2,
+									bgcolor: 'rgba(99,102,241,0.1)',
+									'&:hover': { bgcolor: 'rgba(99,102,241,0.2)' }
+								}}
+							>
+								{isGenerating ? 'Analyse en cours...' : 'Rechercher & Créer Description'}
+							</Button>
+							</Box>
 						<TextField
 							label="Description"
 							name="description"

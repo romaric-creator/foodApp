@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export const useForm = (initialState, validate) => {
   const [values, setValues] = useState(initialState);
   const [errors, setErrors] = useState({});
 
-  const handleChange = (event) => {
+  const handleChange = useCallback((event) => {
     const { name, value } = event.target;
-    setValues({
-      ...values,
+    setValues((prevValues) => ({
+      ...prevValues,
       [name]: value,
-    });
-  };
+    }));
+  }, []);
 
   const handleSubmit = (callback) => (event) => {
     event.preventDefault();
@@ -26,5 +26,6 @@ export const useForm = (initialState, validate) => {
     errors,
     handleChange,
     handleSubmit,
+    setValues
   };
 };

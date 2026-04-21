@@ -7,80 +7,91 @@ import {
   CardContent,
   IconButton,
   useTheme,
-  useMediaQuery
+  alpha
 } from "@mui/material";
-import { Remove, Add } from "@mui/icons-material";
+import { Remove, Add, DeleteOutline } from "@mui/icons-material";
 import { motion } from "framer-motion";
-
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'decimal',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price);
-};
 
 const CartItem = ({ item, modifierQuantite }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const primaryColor = theme.palette.primary.main;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      layout
     >
-      <Card>
+      <Card sx={{
+        display: 'flex',
+        alignItems: 'center',
+        p: 1.5,
+        borderRadius: '20px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+        border: '1px solid rgba(0,0,0,0.02)',
+        mb: 2,
+        overflow: 'visible'
+      }}>
         <CardMedia
           component="img"
           sx={{
-            width: 80, height: 80, objectFit: "cover", borderRadius: 2,
-            flexShrink: 0, mr: 2
+            width: 70,
+            height: 70,
+            objectFit: "cover",
+            borderRadius: '16px',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
           }}
           image={item.image_url || "https://placehold.co/80x80/E0E0E0/666666?text=🍽️"}
           alt={item.name}
-          loading="lazy"
         />
-        <CardContent sx={{
-          flex: 1,
+        
+        <CardContent sx={{ 
+          flex: 1, 
+          py: '0 !important', 
+          px: 2,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          p: '0 !important',
-          ml: 0
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <Box sx={{ flexGrow: 1, pr: 1 }}>
-            <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary', lineHeight: 1.2 }}>
-              {item.name}
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{
-                fontWeight: 'bold',
-                color: 'text.primary',
-              }}
-            >
-              {formatPrice(item.price)} FCFA
-            </Typography>
-          </Box>
-
-          <Box sx={{
-            display: "flex",
-            alignItems: "center",
-            bgcolor: 'rgba(0,0,0,0.05)',
-            borderRadius: 2,
-            p: 0.5,
-            ml: isMobile ? 1 : 2,
-          }}>
-            <IconButton onClick={() => modifierQuantite(item, -1)} size="small" className="quantity-control-button">
-              <Remove sx={{ fontSize: 18 }} />
-            </IconButton>
-            <Typography sx={{ mx: 0.5, fontSize: 16, fontWeight: 'bold', color: 'text.primary' }}>{item.quantite}</Typography>
-            <IconButton onClick={() => modifierQuantite(item, 1)} size="small" className="quantity-control-button">
-              <Add sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+            {item.name}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 900, color: primaryColor }}>
+            {item.price.toLocaleString()} <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>FCFA</span>
+          </Typography>
         </CardContent>
+
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          bgcolor: '#F8F9FA', 
+          borderRadius: '12px',
+          p: 0.5,
+          border: '1px solid rgba(0,0,0,0.03)'
+        }}>
+          <IconButton 
+            size="small" 
+            onClick={() => modifierQuantite(item, -1)}
+            sx={{ 
+              color: item.quantite === 1 ? 'error.main' : 'text.secondary',
+              p: 0.5 
+            }}
+          >
+            {item.quantite === 1 ? <DeleteOutline fontSize="small" /> : <Remove fontSize="small" />}
+          </IconButton>
+          
+          <Typography sx={{ mx: 1.5, fontWeight: 900, fontSize: '0.9rem' }}>
+            {item.quantite}
+          </Typography>
+          
+          <IconButton 
+            size="small" 
+            onClick={() => modifierQuantite(item, 1)}
+            sx={{ color: primaryColor, p: 0.5 }}
+          >
+            <Add fontSize="small" />
+          </IconButton>
+        </Box>
       </Card>
     </motion.div>
   );

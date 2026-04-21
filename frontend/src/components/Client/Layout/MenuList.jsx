@@ -4,10 +4,8 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Paper,
-  Button,
   Badge,
   Skeleton,
-  Fade,
   Zoom,
   Alert,
   Fab,
@@ -20,7 +18,7 @@ import {
   KeyboardArrowUp,
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import EcranMenu from "../Menu/EcranMenu";
 import EcranPanier from "../Cart/EcranPanier";
@@ -28,22 +26,19 @@ import EcranHistorique from "../Profile/EcranHistorique";
 import EcranProfil from "../Profile/EcranProfil";
 import { useApp, useData, useOrders, useNotification } from "../../../contexts/AppContext";
 
-const BOTTOM_NAV_HEIGHT = 56;
+const BOTTOM_NAV_HEIGHT = 64;
 
 export default function MenuList() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { idtable } = useParams();
 
-  // New context hooks
   const { user, isAuthenticated, login, register } = useApp();
   const { menus, categories, tables, loadMenus, loadCategories, loadTables } = useData();
   const { orders: historique, loadOrders, createOrder } = useOrders();
-  const { showFeedback } = useNotification();
+  const { showNotification } = useNotification();
 
-  // Local states
   const [authLoading, setAuthLoading] = useState(false);
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [qrError, setQrError] = useState("");
   const [categorieSelectionnee, setCategorieSelectionnee] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [debouncedRecherche, setDebouncedRecherche] = useState("");
@@ -52,70 +47,36 @@ export default function MenuList() {
   const [ongletActif, setOngletActif] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  const primaryColor = theme.palette.primary.main;
+
   const toast = useCallback((message, severity = "success") => {
-    showFeedback(message, severity);
-  }, [showFeedback]);
+    showNotification(message, severity);
+  }, [showNotification]);
 
-  // 1. Init user + idtable avec validation token QR
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token");
-    const timestamp = urlParams.get("t");
-
-    if (idtable) {
-      localStorage.setItem("idtable", idtable);
-      
-      // Simple table validation - check if table exists in loaded tables
-      if (tables && tables.length > 0) {
-        const tableExists = tables.find(t => (t.idTab || t.id) === parseInt(idtable));
-        if (!tableExists) {
-          setQrError("Table non trouvée.");
-          toast("Table non trouvée.", "error");
-          localStorage.removeItem("idtable");
-        }
-      } else if (tables) {
-        // If no tables, try to load them
-        loadTables().catch(() => {
-          setQrError("Erreur lors de la vérification de la table.");
-          toast("Erreur QR.", "error");
-          localStorage.removeItem("idtable");
-        });
-      }
-    } else {
-      setQrError("ID de table manquant dans l'URL.");
-      toast("ID de table manquant dans l'URL.", "error");
-      localStorage.removeItem("idtable");
-    }
-  }, [idtable, toast, tables, loadTables]);
-
-  // 2. Load menus and categories on mount
   useEffect(() => {
     loadMenus();
     loadCategories();
     loadTables();
   }, []);
 
-  // 3. Set initial category once categories are loaded
   useEffect(() => {
-    if (categories && categories.length > 0 && !categorieSelectionnee) {
-      setCategorieSelectionnee(categories[0].idCat);
+    // On n'initialise plus forcément sur la première catégorie pour permettre de tout voir au départ si besoin
+    // Mais si l'utilisateur veut absolument commencer par une catégorie, on garde la logique.
+    if (categories?.length > 0 && categorieSelectionnee === null) {
+      // Optionnel : décommentez pour forcer la première catégorie au chargement
+      // setCategorieSelectionnee(categories[0].idCat);
     }
-  }, [categories, categorieSelectionnee]);
+  }, [categories]);
 
-  // 4. Load orders on mount
   useEffect(() => {
-    if (user?.id) {
-      loadOrders();
-    }
-  }, [user?.id, loadOrders]);
+    if (user?.id) loadOrders();
+  }, [user]);
 
-  // 5. Debounce recherche
   useEffect(() => {
     const t = setTimeout(() => setDebouncedRecherche(recherche), 300);
     return () => clearTimeout(t);
   }, [recherche]);
 
-  // 6. Scroll top
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener("scroll", onScroll);
@@ -123,8 +84,13 @@ export default function MenuList() {
   }, []);
 
   const filteredMenus = useMemo(
-    () => menus.filter(m => m.name.toLowerCase().includes(debouncedRecherche.toLowerCase())),
-    [menus, debouncedRecherche]
+    () => menus.filter(m => {
+      const matchesSearch = m.name.toLowerCase().includes(debouncedRecherche.toLowerCase());
+      const matchesCategory = !categorieSelectionnee || m.idCat === categorieSelectionnee;
+      const isAvailable = m.is_available !== false && (m.stock_quantity === undefined || m.stock_quantity > 0);
+       return matchesSearch && matchesCategory && isAvailable;
+    }),
+    [menus, debouncedRecherche, categorieSelectionnee]
   );
 
   const ajouterAuPanier = item => {
@@ -133,163 +99,88 @@ export default function MenuList() {
       if (exists) return curr.map(i => i.idMenu === item.idMenu ? { ...i, quantite: i.quantite + 1 } : i);
       return [...curr, { ...item, quantite: 1, price: parseFloat(item.price) }];
     });
-    toast(`${item.name} ajouté`);
+    toast(`${item.name} ajouté au panier`);
   };
+
   const modifierQuantite = (item, delta) => {
     setPanier(curr => curr
       .map(i => i.idMenu === item.idMenu ? { ...i, quantite: i.quantite + delta } : i)
       .filter(i => i.quantite > 0)
     );
   };
+
   const retirerDuPanier = id => setPanier(curr => curr.filter(i => i.idMenu !== id));
-  const calculerTotal = () => panier.reduce((s, i) => s + i.price * i.quantite, 0).toFixed(2);
+  const calculerTotal = () => panier.reduce((s, i) => s + i.price * i.quantite, 0).toFixed(0);
 
   const passerCommande = async () => {
     if (!isAuthenticated) {
-      setOngletActif(3);
-      setShowLoginForm(true);
-      toast("Connectez-vous", "error");
+      toast("Veuillez vous connecter pour commander", "info");
+      navigate('/client/login');
       return;
     }
-    if (!panier.length) { toast("Panier vide", "error"); return; }
+    if (!panier.length) return;
     setCommandeLoading(true);
     try {
       const total = panier.reduce((sum, i) => sum + i.price * i.quantite, 0);
-      
       await createOrder({
-        idUsers: user.id || user.idUsers, // Supporter les deux formats possible
+        idUsers: user.id || user.idUsers,
         idTab: idtable,
         items: panier.map(i => ({ idMenu: i.idMenu, quantite: i.quantite, price: i.price })),
         total
       });
-      toast("Commande réussie");
+      toast("Commande envoyée en cuisine !");
       setPanier([]);
-      loadOrders(); // Recharger l'historique
+      loadOrders();
     } catch (error) {
-      console.error("Erreur commande:", error);
-      toast("Erreur commande", "error");
+       toast("Une erreur est survenue", "error");
     }
     setCommandeLoading(false);
-  };
-
-  const handleLogin = async (email, password) => {
-    setAuthLoading(true);
-    try {
-      await login(email, password);
-      toast("Connecté");
-      setShowLoginForm(false);
-    } catch (error) {
-      toast("Erreur de connexion", "error");
-    }
-    setAuthLoading(false);
-  };
-
-  const handleSignup = async (name, email, password) => {
-    setAuthLoading(true);
-    try {
-      await register(name, email, password);
-      toast("Inscription réussie");
-      setShowLoginForm(false);
-    } catch (error) {
-      toast("Erreur lors de l'inscription", "error");
-    }
-    setAuthLoading(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    toast("Déconnecté");
+    window.location.reload();
   };
 
-  // Le chargement de l'écran menu dépend de l'API
   const isMenuLoading = !menus || !categories;
 
   const screens = [
-    <EcranMenu key="menu" theme={theme} recherche={recherche} setRecherche={setRecherche} categories={categories} categorieSelectionnee={categorieSelectionnee} setCategorieSelectionnee={setCategorieSelectionnee} chargement={isMenuLoading} filteredMenus={filteredMenus} ajouterAuPanier={ajouterAuPanier} />,
-    <EcranPanier key="panier" panier={panier} calculerTotal={calculerTotal} modifierQuantite={modifierQuantite} retirerDuPanier={retirerDuPanier} passerCommande={passerCommande} commandeLoading={commandeLoading} setOngletActif={setOngletActif} />,
+    <EcranMenu key="menu" recherche={recherche} setRecherche={setRecherche} categories={categories} categorieSelectionnee={categorieSelectionnee} setCategorieSelectionnee={setCategorieSelectionnee} chargement={isMenuLoading} filteredMenus={filteredMenus} ajouterAuPanier={ajouterAuPanier} />,
+    <EcranPanier key="panier" panier={panier} calculerTotal={calculerTotal} modifierQuantite={modifierQuantite} retirerDuPanier={retirerDuPanier} passerCommande={passerCommande} commandeLoading={commandeLoading} setOngletActif={setOngletActif} ajouterAuPanier={ajouterAuPanier} />,
     <EcranHistorique key="hist" historique={historique} />,
-    <EcranProfil key="profil" user={user} onLogin={handleLogin} onSignup={handleSignup} authLoading={authLoading} onLogout={handleLogout} />
+    <EcranProfil key="profil" user={user} onLogout={handleLogout} />
   ];
 
-  if (qrError) return <Box sx={{ p: 4, textAlign: "center" }}><Alert severity="error">{qrError}</Alert><Button sx={{ mt: 2 }} onClick={() => window.location.reload()}>Réessayer</Button></Box>;
-  if (showLoginForm) return (
-    <Fade in>
-      <div>
-        <EcranProfil user={user} onLogin={handleLogin} onSignup={handleSignup} authLoading={authLoading} onCancel={() => setShowLoginForm(false)} />
-      </div>
-    </Fade>
-  );
-
   return (
-    <Box
-      sx={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        bgcolor: 'backgroundPanier.default'
-      }}
-    >
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: 'auto',
-          pb: `${BOTTOM_NAV_HEIGHT + 16}px`,
-          position: 'relative'
-        }}
-      >
-        <AnimatePresence mode="wait">
-          {isMenuLoading && ongletActif === 0 ? (
-            <motion.div
-              key="skeleton"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <Box sx={{ p: 2, mt: '220px' }}>
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Box key={i} sx={{ mb: 2, display: 'flex', gap: 2 }}>
-                    <Skeleton variant="rectangular" width={130} height={140} sx={{ borderRadius: 4 }} />
-                    <Box sx={{ flex: 1, py: 1 }}>
-                      <Skeleton variant="text" width="80%" height={30} />
-                      <Skeleton variant="text" width="60%" height={20} />
-                      <Box sx={{ mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <Skeleton variant="text" width="30%" height={30} />
-                         <Skeleton variant="circular" width={40} height={40} />
-                      </Box>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </motion.div>
-          ) : (
-            <motion.div
-              key={ongletActif}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {screens[ongletActif]}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </Box>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F9FA' }}>
+      <AnimatePresence mode="wait">
+        <motion.div
+           key={ongletActif}
+           initial={{ opacity: 0, x: 10 }}
+           animate={{ opacity: 1, x: 0 }}
+           exit={{ opacity: 0, x: -10 }}
+           transition={{ duration: 0.3 }}
+        >
+          {screens[ongletActif]}
+        </motion.div>
+      </AnimatePresence>
 
       <Paper
-        elevation={10}
+        elevation={0}
         sx={{
           position: 'fixed',
           bottom: 0,
           left: 0,
           right: 0,
           height: BOTTOM_NAV_HEIGHT + 10,
-          zIndex: 1000,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          overflow: 'hidden',
-          bgcolor: 'background.paper'
+          zIndex: 2000,
+          borderTopLeftRadius: '30px',
+          borderTopRightRadius: '30px',
+          bgcolor: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(0,0,0,0.05)',
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.05)'
         }}
       >
         <BottomNavigation
@@ -298,11 +189,14 @@ export default function MenuList() {
           showLabels
           sx={{ 
             height: '100%',
-            '& .Mui-selected': { 
-              color: theme.palette.orange?.main || '#FF9800',
-              '& .MuiBottomNavigationAction-label': {
-                fontWeight: 800,
-                fontSize: '0.75rem'
+            bgcolor: 'transparent',
+            '& .MuiBottomNavigationAction-root': {
+              minWidth: 'auto',
+              padding: '6px 0',
+              color: 'text.secondary',
+              '&.Mui-selected': { 
+                color: primaryColor,
+                '& .MuiBottomNavigationAction-label': { fontWeight: 800, fontSize: '0.7rem' }
               }
             }
           }}
@@ -313,34 +207,17 @@ export default function MenuList() {
             icon={
               <Badge 
                 badgeContent={panier.length} 
-                sx={{ '& .MuiBadge-badge': { bgcolor: theme.palette.orange?.main || '#FF9800', color: 'white' } }}
+                sx={{ '& .MuiBadge-badge': { bgcolor: primaryColor, color: 'white', fontWeight: 800 } }}
               >
                 <ShoppingCart />
               </Badge>
             } 
           />
-          <BottomNavigationAction label="Historique" icon={<HistoryIcon />} />
-          <BottomNavigationAction label="Profil" icon={<Person />} />
+          <BottomNavigationAction label="Commandes" icon={<HistoryIcon />} />
+          <BottomNavigationAction label="Compte" icon={<Person />} />
         </BottomNavigation>
       </Paper>
 
-      <Zoom in={showScrollTop}>
-        <Fab
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          size="small"
-          sx={{
-            position: 'fixed',
-            bottom: BOTTOM_NAV_HEIGHT + 30,
-            right: 20,
-            zIndex: 999,
-            bgcolor: 'white',
-            color: theme.palette.orange?.main || '#FF9800',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-          }}
-        >
-          <KeyboardArrowUp />
-        </Fab>
-      </Zoom>
     </Box>
   );
 }

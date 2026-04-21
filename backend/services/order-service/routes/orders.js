@@ -144,13 +144,32 @@ router.post('/', async (req, res) => {
         timestamp: new Date()
       }, { transaction: t });
 
-      // Ajouter le items
+      // Ajouter les items et décrémenter le stock
       for (const item of items) {
+        // Vérifier la disponibilité et le stock
+        const menu = await Menu.findByPk(item.idMenu, { transaction: t, lock: true });
+        
+        if (!menu) {
+          throw new Error(`Le plat avec l'ID ${item.idMenu} n'existe pas.`);
+        }
+
+        if (menu.stock_quantity < item.quantity) {
+          throw new Error(`Stock insuffisant pour le plat "${menu.name}". Disponible: ${menu.stock_quantity}`);
+        }
+
+        // Créer l'item de commande
         await OrderItem.create({
           idOrder: newOrder.idOrder,
           idMenu: item.idMenu,
           quantity: item.quantity || 1,
           price: item.price
+        }, { transaction: t });
+
+        // Décrémenter le stock
+        const newStock = menu.stock_quantity - item.quantity;
+        await menu.update({ 
+          stock_quantity: newStock,
+          is_available: newStock > 0
         }, { transaction: t });
       }
 

@@ -154,15 +154,14 @@ const UserManager = () => {
                 elevation={1}
                 sx={{
                   p: 3,
-                  borderRadius: 2,
+                  borderRadius: 4,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   bgcolor: "background.paper",
-                  border: "1px solid",
-                  borderColor: "divider",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                  "&:hover": { transform: "translateY(-5px)", boxShadow: 6 },
+                  border: "1px solid rgba(248,250,252,0.05)",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": { transform: "translateY(-5px)", boxShadow: '0 10px 40px rgba(0,0,0,0.4)', borderColor: 'primary.main' },
                 }}
               >
                 <Avatar

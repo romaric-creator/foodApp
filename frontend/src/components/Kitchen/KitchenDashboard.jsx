@@ -114,48 +114,41 @@ const KitchenDashboard = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Statistiques */}
+    <Box sx={{ p: 4, bgcolor: 'background.default', minHeight: '100%', color: 'text.primary' }}>
+      {/* Statistiques Dynamiques */}
       {stats && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper sx={{ p: 2, textAlign: "center" }}>
-              <Typography variant="h4" color="primary">
-                {stats.total_orders}
-              </Typography>
-              <Typography variant="body2">Commandes aujourd'hui</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper sx={{ p: 2, textAlign: "center" }}>
-              <Typography variant="h4" color="warning.main">
-                {stats.pending_count}
-              </Typography>
-              <Typography variant="body2">En attente</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper sx={{ p: 2, textAlign: "center" }}>
-              <Typography variant="h4" color="info.main">
-                {stats.confirmed_count}
-              </Typography>
-              <Typography variant="body2">En préparation</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper sx={{ p: 2, textAlign: "center" }}>
-              <Typography variant="h4" color="success.main">
-                {stats.served_count}
-              </Typography>
-              <Typography variant="body2">Servies</Typography>
-            </Paper>
-          </Grid>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[
+            { label: "Total Jour", value: stats.total_orders, color: 'primary.main' },
+            { label: "En attente", value: stats.pending_count, color: '#FB923C' },
+            { label: "En cours", value: stats.confirmed_count, color: '#94A3B8' },
+            { label: "Servies", value: stats.served_count, color: '#10B981' }
+          ].map((s, i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Paper sx={{ 
+                p: 3, textAlign: "center", borderRadius: 4, 
+                bgcolor: 'background.paper', 
+                border: '1px solid rgba(248,250,252,0.05)',
+                transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)' }
+              }}>
+                <Typography variant="h3" sx={{ fontWeight: 1000, color: s.color, mb: 1 }}>{s.value}</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 1 }}>{s.label}</Typography>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       )}
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 2 }}>
-        <Tabs value={tab} onChange={(e, v) => setTab(v)}>
+      {/* Barre de Filtres (Onglets) */}
+      <Paper sx={{ mb: 4, borderRadius: 4, bgcolor: 'background.paper', overflow: 'hidden' }}>
+        <Tabs 
+          value={tab} 
+          onChange={(e, v) => setTab(v)}
+          sx={{
+            '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3 },
+            '& .MuiTab-root': { fontWeight: 800, textTransform: 'none', py: 2 }
+          }}
+        >
           <Tab
             label={
               <Badge badgeContent={orders.filter((o) => o.statut === "en cours").length} color="error">
@@ -174,85 +167,84 @@ const KitchenDashboard = () => {
         </Tabs>
       </Paper>
 
-      {/* Liste des commandes */}
-      <Grid container spacing={2}>
+      {/* Grille des Bons de Commande */}
+      <Grid container spacing={3}>
         {filteredOrders.map((order) => (
           <Grid item xs={12} md={6} lg={4} key={order.idOrder}>
-            <Card>
-              <CardContent>
+            <Card sx={{ 
+              borderRadius: 4, bgcolor: 'background.paper', 
+              border: '1px solid rgba(248,250,252,0.05)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}>
+              <CardContent sx={{ p: 3 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6">
-                    Table {order.table_name}
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    TABLE {order.table_name}
                   </Typography>
                   <Chip
-                    label={getStatusLabel(order.statut)}
-                    color={getStatusColor(order.statut)}
-                    size="small"
+                    label={getStatusLabel(order.statut).toUpperCase()}
+                    sx={{ 
+                      bgcolor: order.statut === 'en cours' ? 'rgba(251,146,60,0.1)' : 'rgba(16,185,129,0.1)',
+                      color: order.statut === 'en cours' ? 'primary.main' : '#10B981',
+                      fontWeight: 900, fontSize: '0.7rem', borderRadius: 2
+                    }}
                   />
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Commande #{order.idOrder} • {new Date(order.created_at).toLocaleTimeString()}
+                <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 700 }}>
+                  BON #{order.idOrder} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Typography>
 
-                <Box sx={{ my: 2 }}>
+                <Box sx={{ my: 3, p: 2, bgcolor: 'rgba(248,250,252,0.02)', borderRadius: 2 }}>
                   {order.items.map((item, idx) => (
                     <Box key={idx} display="flex" justifyContent="space-between" mb={1}>
-                      <Typography variant="body2">
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                         {item.quantity}x {item.menu_name}
                       </Typography>
                     </Box>
                   ))}
                 </Box>
 
-                <Typography variant="h6" color="primary" gutterBottom>
-                  Total: {order.total.toFixed(2)} €
+                <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 1000, mb: 3 }}>
+                  {order.total.toLocaleString()} FCFA
                 </Typography>
 
-                <Box display="flex" gap={1} mt={2}>
+                <Stack direction="row" spacing={1.5}>
                   {order.statut === "en cours" && (
                     <Button
                       variant="contained"
-                      color="success"
-                      startIcon={<CheckCircle />}
                       onClick={() => handleMarkAsServed(order.idOrder)}
                       fullWidth
+                      sx={{ 
+                        bgcolor: 'primary.main', fontWeight: 900, borderRadius: 2,
+                        '&:hover': { bgcolor: 'primary.dark' }
+                      }}
                     >
-                      Marquer Prêt
+                      PRÊT !
                     </Button>
                   )}
                   {order.statut === "prêt" && (
                     <Button
                       variant="outlined"
-                      color="info"
                       startIcon={<AccessTime />}
                       onClick={() => handleMarkAsPreparing(order.idOrder)}
+                      sx={{ borderRadius: 2, fontWeight: 800, borderColor: 'rgba(248,250,252,0.2)', color: 'text.secondary' }}
                     >
-                      Remettre en cours
+                      REFAIRE
                     </Button>
                   )}
-                  <Button
-                    variant="outlined"
-                    startIcon={<PrintIcon />}
+                  <IconButton 
                     onClick={() => handlePrint(order)}
+                    sx={{ bgcolor: 'rgba(248,250,252,0.05)', borderRadius: 2, '&:hover': { bgcolor: 'rgba(248,250,252,0.1)' } }}
                   >
-                    Imprimer
-                  </Button>
-                </Box>
+                    <PrintIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </Stack>
               </CardContent>
             </Card>
           </Grid>
         ))}
       </Grid>
-
-      {filteredOrders.length === 0 && (
-        <Paper sx={{ p: 4, textAlign: "center" }}>
-          <Restaurant sx={{ fontSize: 48, color: "text.secondary", mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            Aucune commande {tab === 0 ? "en attente" : tab === 1 ? "en préparation" : ""}
-          </Typography>
-        </Paper>
-      )}
     </Box>
   );
 };

@@ -1,14 +1,47 @@
-console.log('--- Loading dbTools.js ---');
-import pool from '../../../shared/config/database.js';
+const pool = require('../../../shared/config/database.js');
+
+/**
+ * Liste blanche des tables autorisées pour les requêtes IA
+ */
+const ALLOWED_TABLES = ['menus', 'categories', 'orders', 'order_items', 'users', 'tables', 'ai_conversations'];
+
+/**
+ * Vérifie si une table est autorisée
+ */
+function isTableAllowed(tableName) {
+  return ALLOWED_TABLES.includes(tableName.toLowerCase());
+}
+
+/**
+ * Valide que la requête ne cible que des tables autorisées
+ */
+function validateTableNames(sql) {
+  const tablePattern = /(?:FROM|JOIN|UPDATE|INTO|TABLE)\s+`?(\w+)`?/gi;
+  let match;
+  while ((match = tablePattern.exec(sql)) !== null) {
+    const tableName = match[1].toLowerCase();
+    if (!isTableAllowed(tableName)) {
+      throw new Error(`Table '${tableName}' non autorisée. Tables permises: ${ALLOWED_TABLES.join(', ')}`);
+    }
+  }
+}
 
 /**
  * Exécute une requête SQL en lecture seule sur la base de données.
  */
-export async function executeReadOnlyQuery(sql) {
+async function executeReadOnlyQuery(sql) {
   const sanitizedSql = sql.trim();
+  
+  if (sanitizedSql.includes(';')) {
+    throw new Error('Les requêtes multiples (;) ne sont pas autorisées pour l\'assistant IA.');
+  }
+
   if (!sanitizedSql.toUpperCase().startsWith('SELECT')) {
     throw new Error('Seules les requêtes SELECT sont autorisées pour l\'assistant IA.');
   }
+
+  validateTableNames(sanitizedSql);
+
   try {
     const [rows] = await pool.execute(sanitizedSql);
     return rows;
@@ -21,10 +54,13 @@ export async function executeReadOnlyQuery(sql) {
 /**
  * Exécute une requête d'action (UPDATE, INSERT) de manière contrôlée.
  */
-export async function executeActionQuery(sql) {
+async function executeActionQuery(sql) {
   const sanitizedSql = sql.trim().toUpperCase();
   
-  // Si c'est un SELECT, on redirige vers le moteur de lecture seule pour éviter l'erreur
+  if (sanitizedSql.includes(';')) {
+    throw new Error('Les requêtes multiples (;) ne sont pas autorisées.');
+  }
+
   if (sanitizedSql.startsWith('SELECT')) {
     return await executeReadOnlyQuery(sql);
   }
@@ -35,6 +71,8 @@ export async function executeActionQuery(sql) {
   if (!allowed || forbidden) {
     throw new Error('Action non autorisée. Seuls UPDATE, INSERT et SELECT sont permis.');
   }
+
+  validateTableNames(sql);
   
   try {
     const [result] = await pool.execute(sql);
@@ -48,19 +86,24 @@ export async function executeActionQuery(sql) {
 /**
  * Récupère le schéma simplifié de la base de données pour aider l'IA.
  */
-export async function getDatabaseSchema() {
+async function getDatabaseSchema() {
   try {
     const [tables] = await pool.execute('SHOW TABLES');
     const schema = {};
     for (const tableRow of tables) {
       const tableName = Object.values(tableRow)[0];
-      const [columns] = await pool.execute(`DESCRIBE ${tableName}`);
-      schema[tableName] = columns.map(col => ({
-        field: col.Field,
-        type: col.Type,
-        null: col.Null,
-        key: col.Key
-      }));
+      if (!isTableAllowed(tableName)) continue;
+      try {
+        const [columns] = await pool.execute(`DESCRIBE \`${tableName}\``);
+        schema[tableName] = columns.map(col => ({
+          field: col.Field,
+          type: col.Type,
+          null: col.Null,
+          key: col.Key
+        }));
+      } catch (e) {
+        console.warn(`Cannot describe table ${tableName}:`, e.message);
+      }
     }
     return schema;
   } catch (error) {
@@ -72,7 +115,7 @@ export async function getDatabaseSchema() {
 /**
  * Sauvegarde un message de chat dans la base de données avec support de session.
  */
-export async function saveChatMessage(userId, role, content, sessionId = 'default', sessionTitle = 'Nouvelle discussion') {
+async function saveChatMessage(userId, role, content, sessionId = 'default', sessionTitle = 'Nouvelle discussion') {
   try {
     await pool.execute(
       'INSERT INTO ai_conversations (idUsers, role, content, sessionId, sessionTitle) VALUES (?, ?, ?, ?, ?)',
@@ -85,8 +128,9 @@ export async function saveChatMessage(userId, role, content, sessionId = 'defaul
 
 /**
  * Récupère l'historique d'une session spécifique.
+ * Limité à 20 messages pour optimiser les tokens.
  */
-export async function getChatHistory(userId, sessionId = 'default', limit = 100) {
+async function getChatHistory(userId, sessionId = 'default', limit = 20) {
   try {
     const [rows] = await pool.execute(
       'SELECT role, content FROM ai_conversations WHERE idUsers = ? AND sessionId = ? ORDER BY created_at ASC LIMIT ?',
@@ -105,10 +149,15 @@ export async function getChatHistory(userId, sessionId = 'default', limit = 100)
 /**
  * Récupère la liste des sessions uniques d'un utilisateur.
  */
-export async function getChatSessions(userId) {
+async function getChatSessions(userId) {
   try {
+    // On récupère le dernier titre et la dernière date pour chaque sessionId unique
     const [rows] = await pool.execute(
-      'SELECT sessionId, sessionTitle, MAX(created_at) as last_msg FROM ai_conversations WHERE idUsers = ? GROUP BY sessionId, sessionTitle ORDER BY last_msg DESC',
+      `SELECT sessionId, sessionTitle, created_at as last_msg 
+       FROM ai_conversations 
+       WHERE idUsers = ? 
+       AND id IN (SELECT MAX(id) FROM ai_conversations GROUP BY sessionId)
+       ORDER BY created_at DESC`,
       [userId]
     );
     return rows;
@@ -121,7 +170,7 @@ export async function getChatSessions(userId) {
 /**
  * Efface l'historique d'une session ou tout l'historique d'un utilisateur.
  */
-export async function clearUserChatHistory(userId, sessionId = null) {
+async function clearUserChatHistory(userId, sessionId = null) {
   try {
     if (sessionId) {
       await pool.execute('DELETE FROM ai_conversations WHERE idUsers = ? AND sessionId = ?', [userId, sessionId]);
@@ -132,3 +181,13 @@ export async function clearUserChatHistory(userId, sessionId = null) {
     console.error('Erreur suppression historique chat:', error.message);
   }
 }
+
+module.exports = {
+  executeReadOnlyQuery,
+  executeActionQuery,
+  getDatabaseSchema,
+  saveChatMessage,
+  getChatHistory,
+  getChatSessions,
+  clearUserChatHistory
+};

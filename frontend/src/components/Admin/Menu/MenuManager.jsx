@@ -11,13 +11,28 @@ import { useCategories } from '../../../hooks/useCategories';
 
 const MenuItemComponent = ({ menu, onEdit }) => (
   <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.3 }}>
-    <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1, borderRadius: 2, border: '1px solid', borderColor: 'divider', background: "background.paper", minHeight: 250, position: 'relative' }}>
-      <img src={`${menu.image_url}`} alt={menu.name} style={{ width: "100%", height: "auto", maxHeight: 150, objectFit: 'cover', borderRadius: "8px" }} />
+    <Box sx={{ 
+      p: 2, display: "flex", flexDirection: "column", gap: 1, 
+      borderRadius: 4, border: '1px solid', borderColor: 'rgba(248,250,252,0.1)', 
+      bgcolor: "background.paper", minHeight: 250, position: 'relative',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      '&:hover': { transform: 'translateY(-5px)', borderColor: 'primary.main', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }
+    }}>
+      <img src={`${menu.image_url}`} alt={menu.name} style={{ width: "100%", height: "auto", maxHeight: 150, objectFit: 'cover', borderRadius: "12px" }} />
       <Box sx={{ flexGrow: 1 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: "bold", mt: 1 }}>{menu.name}</Typography>
-        <Typography variant="body2" color="text.secondary">{menu.price} FCFA</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 900, mt: 1, color: 'text.primary' }}>{menu.name}</Typography>
+        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 700 }}>{menu.price} FCFA</Typography>
       </Box>
-      <IconButton aria-label="modifier" onClick={() => onEdit(menu)} sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.7)', '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' } }}>
+      <IconButton 
+        aria-label="modifier" 
+        onClick={() => onEdit(menu)} 
+        sx={{ 
+          position: 'absolute', top: 8, right: 8, 
+          bgcolor: 'rgba(248,250,252,0.05)', 
+          backdropFilter: 'blur(5px)',
+          '&:hover': { bgcolor: 'rgba(248,250,252,0.15)' } 
+        }}
+      >
         <EditIcon color="primary" />
       </IconButton>
     </Box>
@@ -97,7 +112,7 @@ const MenuManager = () => {
             </Button>
           </Stack>
 
-          <Box sx={{ display: "flex", gap: 1, overflowX: 'auto', pb: 1, flexWrap: 'nowrap', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: "flex", gap: 1.5, overflowX: 'auto', pb: 2, flexWrap: 'nowrap', borderBottom: '1px solid', borderColor: 'rgba(248,250,252,0.05)' }}>
             {categories.map((cat) => (
               <Chip
                 key={cat.idCat}
@@ -106,7 +121,12 @@ const MenuManager = () => {
                 variant={selectedCategory === cat.idCat ? "filled" : "outlined"}
                 color={selectedCategory === cat.idCat ? "primary" : "default"}
                 clickable
-                sx={{ flexShrink: 0 }}
+                sx={{ 
+                  flexShrink: 0,
+                  px: 1,
+                  transition: 'all 0.2s',
+                  '&:hover': { transform: 'scale(1.05)' }
+                }}
               />
             ))}
           </Box>
@@ -130,7 +150,17 @@ const MenuManager = () => {
         )}
 
         <Modal open={isMenuModalOpen} onClose={closeMenuModal}>
-          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: { xs: '90%', sm: 450 }, bgcolor: 'background.paper', boxShadow: 24, p: 4, borderRadius: 2 }}>
+          <Box sx={{ 
+            position: 'absolute', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)', 
+            width: { xs: '95%', md: 1000 }, 
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            bgcolor: 'transparent', // On laisse le Paper du MenuForm gérer le fond
+            outline: 'none'
+          }}>
             <MenuForm existingMenu={currentMenu} onSuccess={closeMenuModal} />
           </Box>
         </Modal>

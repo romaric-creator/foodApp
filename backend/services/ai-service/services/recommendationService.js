@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require('axios');
 
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const COHERE_BASE_URL = 'https://api.cohere.com/v1';
@@ -8,9 +8,9 @@ async function callCohere(prompt, systemPrompt = '') {
     const response = await axios.post(
       `${COHERE_BASE_URL}/chat`,
       {
-        model: 'command-r-plus',
+        model: 'command-r-08-2024',
         message: prompt,
-        system: systemPrompt,
+        preamble: systemPrompt,
         temperature: 0.7,
         max_tokens: 1000
       },
@@ -28,10 +28,10 @@ async function callCohere(prompt, systemPrompt = '') {
   }
 }
 
-export async function getRecommendations(userId, userHistory, menu, redisClient) {
+async function getRecommendations(userId, userHistory, menu, redisClient) {
   const cacheKey = `recommendations:${userId}`;
 
-  if (redisClient?.isOpen) {
+  if (redisClient && redisClient.isOpen) {
     try {
       const cached = await redisClient.get(cacheKey);
       if (cached) {
@@ -46,44 +46,63 @@ export async function getRecommendations(userId, userHistory, menu, redisClient)
   const recentOrders = userHistory.slice(-10);
   const userPreferences = analyzePreferences(recentOrders, menu);
 
+  // Préparer une version simplifiée du menu pour l'IA
+  const simplifiedMenu = menu.map(m => ({ 
+    id: m.idMenu || m.id, 
+    name: m.name, 
+    price: m.price,
+    category: m.idCat 
+  })).slice(0, 50);
+
   try {
     const response = await callCohere(
-      `Client: ${JSON.stringify(userPreferences)}
-Menu disponible: ${JSON.stringify(menu.slice(0, 30))}
+      `Client Preferences: ${JSON.stringify(userPreferences)}
+Menu available (ONLY choose from this list): ${JSON.stringify(simplifiedMenu)}
 
-Recommande 3 plats maximum avec:
-- ID du plat
-- Nom du plat
-- Raison personnalisée
-- Score de confiance (0-100)
-- Prix
+INSTRUCTIONS:
+1. Recommend up to 3 dishes from the "Menu available" list.
+2. DO NOT invent dishes or change prices.
+3. If no clear match, recommend our best rated dishes from the list.
+4. Format: JSON array of objects.
 
-Retourne UNIQUEMENT du JSON valide sans markdown. Format: [{\"id\": 1, \"name\": \"Plat\", \"reason\": \"...\", \"confidence\": 90, \"price\": 15}]`,
-      `Tu es un assistant sommelier et nutritionniste expert.
-      Recommande des plats basé sur:
-      1. Historique de commandes du client
-      2. Préférences détectées (saveurs, types cuisine)
-      3. Allergies et restrictions`
+JSON format: [{\"id\": \"id_du_menu\", \"name\": \"Nom exact\", \"reason\": \"Pourquoi ce choix?\", \"confidence\": 95, \"price\": 5000}]`,
+      "You are a helpful restaurant assistant. You strictly recommend items from the provided menu list."
     );
 
-    let recommendations = [];
+    let rawRecommendations = [];
     try {
       const cleanJson = response.text.replace(/```json\n?|\n?```/g, '').trim();
-      recommendations = JSON.parse(cleanJson);
+      rawRecommendations = JSON.parse(cleanJson);
     } catch (err) {
-      console.error('JSON parse error:', err);
-      recommendations = parseRecommendationsManually(response.text);
+      console.error('JSON parse error, falling back to manual or empty');
+      rawRecommendations = [];
     }
 
-    if (redisClient?.isOpen) {
+    // VALIDATION: S'assurer que les recommandations existent vraiment dans le menu
+    const validatedRecommendations = rawRecommendations
+      .map(rec => {
+        const dish = menu.find(d => (d.idMenu || d.id) == rec.id);
+        if (dish) {
+          return {
+            ...rec,
+            name: dish.name,   // Utiliser le nom réel
+            price: dish.price, // Utiliser le prix réel
+            id: dish.idMenu || dish.id
+          };
+        }
+        return null;
+      })
+      .filter(rec => rec !== null);
+
+    if (redisClient && redisClient.isOpen && validatedRecommendations.length > 0) {
       try {
-        await redisClient.setEx(cacheKey, 3600, JSON.stringify(recommendations));
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(validatedRecommendations));
       } catch (err) {
         console.error('Redis cache set error:', err);
       }
     }
 
-    return recommendations;
+    return validatedRecommendations;
   } catch (error) {
     console.error('Cohere API error:', error.message);
     return [];
@@ -139,3 +158,7 @@ function parseRecommendationsManually(text) {
 
   return recommendations;
 }
+
+module.exports = {
+  getRecommendations
+};

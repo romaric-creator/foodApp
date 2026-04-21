@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -24,11 +24,15 @@ import {
   Switch,
   Drawer,
   useMediaQuery,
-  GlobalStyles
+  GlobalStyles,
+  CircularProgress,
+  LinearProgress,
+  ThemeProvider,
+  createTheme
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Psychology as AIIcon,
+  Psychology as PsychologyIcon,
   Timeline as GrowthIcon,
   QueryStats as StatsIcon,
   TipsAndUpdates as StrategyIcon,
@@ -42,10 +46,15 @@ import {
   TrendingUp as PredictionIcon,
   Add as AddIcon,
   ChatBubbleOutline as ChatIcon,
-  Menu as MenuToggleButton,
+  Menu as MenuIcon,
+  Settings as SettingsIcon,
   DeleteOutline as DeleteIcon,
   Tune as ToolsIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Dashboard as DashboardIcon,
+  Lightbulb as IdeaIcon,
+  MicNoneOutlined as MicIcon,
+  PrintOutlined as PrintIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -68,9 +77,61 @@ import api from '../../../config/api';
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ChartTitle, ChartTooltip, Legend, ArcElement);
 
 const ChatChart = ({ type, data, options }) => {
-  const containerStyle = { width: '100%', maxWidth: '500px', margin: '16px 0' };
-  const muiOptions = { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#666', font: { size: 10 } } } }, ...options };
-  return <Box sx={containerStyle}>{type === 'bar' ? <Bar data={data} options={muiOptions} /> : type === 'line' ? <Line data={data} options={muiOptions} /> : <Pie data={data} options={muiOptions} />}</Box>;
+  const containerStyle = { 
+    width: '100%', 
+    maxWidth: '650px', 
+    margin: '32px 0',
+    padding: '24px',
+    background: 'rgba(248,250,252,0.02)',
+    borderRadius: '16px',
+    border: '1px solid rgba(248,250,252,0.1)',
+  };
+  
+  const muiOptions = { 
+    responsive: true, 
+    maintainAspectRatio: false,
+    plugins: { 
+      legend: { 
+        position: 'bottom', 
+        labels: { 
+          color: 'rgba(255,255,255,0.5)', 
+          font: { size: 11, weight: '600' },
+          padding: 20,
+          usePointStyle: true
+        } 
+      },
+      tooltip: {
+        backgroundColor: '#0d0d1a',
+        titleColor: '#FB923C',
+        bodyColor: '#fff',
+        borderColor: 'rgba(251,146,60,0.2)',
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 15
+      }
+    },
+    scales: type !== 'pie' ? {
+      y: { 
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
+      },
+      x: { 
+        grid: { display: false },
+        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
+      }
+    } : {},
+    ...options 
+  };
+  
+  return (
+    <Box sx={containerStyle}>
+      <Box sx={{ height: 300 }}>
+        {type === 'bar' ? <Bar data={data} options={muiOptions} /> : 
+         type === 'line' ? <Line data={data} options={muiOptions} /> : 
+         <Pie data={data} options={muiOptions} />}
+      </Box>
+    </Box>
+  );
 };
 
 const AIDashboard = () => {
@@ -81,26 +142,82 @@ const AIDashboard = () => {
     { role: 'Assistant', content: "# Bienvenue dans l'Audit Premium Gourmi IQ\nJe suis GOURMI AGENT, votre copilote stratégique. Interrogez-moi pour transformer votre restaurant." }
   ]);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  // Animation FadeIn
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .markdown-content table {
+        width: 100%; border-collapse: collapse; margin: 16px 0;
+        background: rgba(255,255,255,0.02); border-radius: 8px; overflow: hidden;
+      }
+      .markdown-content th { background: rgba(251,146,60,0.1); color: #FB923C; padding: 12px; text-align: left; }
+      .markdown-content td { padding: 12px; border-bottom: 1px solid rgba(248,250,252,0.05); }
+    `;
+    document.head.appendChild(style);
+  }, []);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [notif, setNotif] = useState({ open: false, msg: '', severity: 'success' });
   const [sessions, setSessions] = useState([]);
+  const [stats, setStats] = useState({ topDish: 'Ndolé', lowStock: 3 });
+
+  const promptSuggestions = [
+    { label: "Plat le plus rentable?", icon: "💰" },
+    { label: "Alerte stock critique", icon: "⚠️" },
+    { label: "Synthèse de la semaine", icon: "📊" }
+  ];
   const [currentSessionId, setCurrentSessionId] = useState('session_' + Date.now());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0); // 0=idle 1=planning 2=executing 3=reporting
+
+  const aiTheme = useMemo(() => createTheme({
+    palette: {
+      mode: 'dark',
+      primary: { main: '#FB923C' }, // Corail consistent
+      secondary: { main: '#0EA5E9' }, // Azur consistent
+      background: { default: '#1A1C1E', paper: '#334155' },
+      text: { primary: '#F8FAFC', secondary: '#94A3B8' }
+    },
+    shape: { borderRadius: 16 },
+    typography: { 
+      fontFamily: '"Inter", sans-serif',
+      h5: { fontWeight: 900 },
+      h6: { fontWeight: 800 }
+    }
+  }), []);
   const [lastPipelineMeta, setLastPipelineMeta] = useState(null);
 
   const scrollRef = useRef(null);
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [chatHistory, loading]);
 
-  const fetchSessions = async () => {
+   const fetchSessions = async () => {
     try {
       const response = await api.get('/ai/chat/sessions');
       setSessions(response.data);
     } catch (e) { console.error(e); }
   };
-  useEffect(() => { fetchSessions(); }, []);
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data);
+    } catch (e) { console.error(e); }
+  };
+  useEffect(() => { 
+    fetchSessions(); 
+    fetchCategories();
+  }, []);
 
   const fetchHistory = async (sid) => {
     setFetchingHistory(true);
@@ -109,7 +226,8 @@ const AIDashboard = () => {
       const response = await api.get(`/ai/chat/history/${sid}`);
       if (response.data.length > 0) {
         setChatHistory(response.data.map(h => ({
-          role: h.role === 'USER' ? 'User' : 'Assistant',
+          // On normalise le rôle : user, USER, User -> 'User'
+          role: (h.role && h.role.toUpperCase() === 'USER') ? 'User' : 'Assistant',
           content: h.content
         })));
       }
@@ -134,14 +252,27 @@ const AIDashboard = () => {
     } catch (e) { console.error(e); }
   };
 
+  const [viewMode, setViewMode] = useState('chat'); // 'chat' or 'dashboard'
   const [activeTools, setActiveTools] = useState({ sql: true, actions: true, predictions: true, charts: true, pdf: true });
   const [anchorEl, setAnchorEl] = useState(null);
+
+  const getStrategicElements = () => {
+    const elements = [];
+    chatHistory.forEach(h => {
+      const tagRegex = /<(CHART|STRATEGY_INSIGHT)([\s\S]*?)\/>/g;
+      let match;
+      while ((match = tagRegex.exec(h.content)) !== null) {
+        elements.push({ type: match[1], attrs: match[2], timestamp: h.timestamp });
+      }
+    });
+    return elements;
+  };
 
   const exportToPDF = (content, fileName = "Rapport_Gourmi") => {
     if (!content) return;
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
-    doc.setFillColor(99, 102, 241);
+    doc.setFillColor(255, 112, 67);
     doc.rect(0, 0, 210, 40, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
@@ -156,7 +287,7 @@ const AIDashboard = () => {
     splitText.forEach(line => {
       if (y > 275) { doc.addPage(); y = 20; }
       if (line.includes('|')) { doc.setFont("courier", "normal"); doc.setTextColor(100, 100, 100); }
-      else if (line.startsWith('--- ')) { doc.setFont("helvetica", "bold"); doc.setTextColor(99, 102, 241); }
+      else if (line.startsWith('--- ')) { doc.setFont("helvetica", "bold"); doc.setTextColor(255, 112, 67); }
       else { doc.setFont("helvetica", "normal"); doc.setTextColor(40, 40, 40); }
       doc.text(line, 20, y);
       y += line.includes('|') ? 6 : 7;
@@ -164,53 +295,96 @@ const AIDashboard = () => {
     doc.save(`${fileName}_${Date.now()}.pdf`);
   };
 
+  const handleCreateMenu = async (menuData) => {
+    setLoading(true);
+    setNotif({ open: true, msg: "Création du plat en cours...", severity: "info" });
+     try {
+      // Nettoyage et validation des données (Évite l'erreur ER_TRUNCATED_WRONG_VALUE_FOR_FIELD)
+      const cleanPrice = parseInt(menuData.price?.toString().replace(/\s/g, '')) || 0;
+      const cleanStock = parseInt(menuData.stock) || 0;
+
+      // Trouver l'ID de la catégorie suggérée (Matching Intelligent)
+      let idCat = (categories && categories.length > 0) ? categories[0].idCat : null; // Par défaut, la première catégorie
+      if (menuData.category) {
+        const cat = categories.find(c => 
+          c.name.toLowerCase().trim() === menuData.category.toLowerCase().trim() ||
+          c.name.toLowerCase().includes(menuData.category.toLowerCase()) ||
+          menuData.category.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (cat) idCat = cat.idCat;
+      }
+
+      // 1. Appel au service catalogue pour créer le produit
+      const response = await api.post('/menus', {
+        name: menuData.name,
+        description: menuData.description,
+        price: cleanPrice,
+        stock_quantity: cleanStock,
+        image_url: menuData.image,
+        idCat: idCat,
+        is_available: 1
+      });
+
+      if (response.data) {
+        setNotif({ open: true, msg: `Plat "${menuData.name}" ajouté avec succès !`, severity: "success" });
+        handleSend(`C'est fait ! Le plat ${menuData.name} est maintenant disponible avec un stock de ${menuData.stock} portions.`);
+      }
+    } catch (error) {
+      console.error(error);
+      setNotif({ open: true, msg: "Erreur lors de la création du plat", severity: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSend = async (forcedMessage = null) => {
     const textToSend = forcedMessage || message;
     if (!textToSend.trim() || loading) return;
     if (!forcedMessage) setMessage('');
-    setChatHistory(prev => [...prev, { role: 'User', content: textToSend }]);
+    setChatHistory(prev => [...prev, { role: 'User', content: textToSend, timestamp: new Date() }]);
     setLoading(true);
+    setPipelineStep(1); // 1: Planning
     setLastPipelineMeta(null);
 
-    // On anticipe si c'est analytique pour afficher les étapes
-    const isLikelyAnalytical = textToSend.length > 20;
-    if (isLikelyAnalytical) {
-      setPipelineStep(1);
-      const stepTimer1 = setTimeout(() => setPipelineStep(2), 2500);
-      const stepTimer2 = setTimeout(() => setPipelineStep(3), 5000);
+    // Simulation de progression pour l'UX
+    const stepInterval = setInterval(() => {
+      setPipelineStep(prev => prev < 3 ? prev + 1 : prev);
+    }, 800);
 
-      try {
-        const title = textToSend.substring(0, 30);
-        const response = await api.post('/ai/chat/admin/chat', {
-          message: textToSend, history: chatHistory, sessionId: currentSessionId, sessionTitle: title
-        });
-        clearTimeout(stepTimer1); clearTimeout(stepTimer2);
-        if (response.data.pipeline) setLastPipelineMeta(response.data.pipeline);
-        setChatHistory(prev => [...prev, { role: 'Assistant', content: response.data.message, pipeline: response.data.pipeline }]);
-        fetchSessions();
-      } catch (error) {
-        setPipelineStep(0);
-        setChatHistory(prev => [...prev, { role: 'Assistant', content: "Erreur technique. Vérifiez la connexion au service IA." }]);
-      } finally {
+    try {
+      const title = textToSend.substring(0, 30);
+      const historyToSend = chatHistory.slice(-10).map(h => ({
+        role: h.role === 'User' ? 'User' : 'Assistant',
+        content: h.content
+      }));
+
+      const response = await api.post('/ai/chat/admin/chat', {
+        message: textToSend, 
+        history: historyToSend, 
+        sessionId: currentSessionId, 
+        sessionTitle: title
+      });
+
+      clearInterval(stepInterval);
+      setPipelineStep(4); // Complet
+
+      if (response.data.pipeline) setLastPipelineMeta(response.data.pipeline);
+      setChatHistory(prev => [...prev, { 
+        role: 'Assistant', 
+        content: response.data.message, 
+        pipeline: response.data.pipeline,
+        timestamp: new Date()
+      }]);
+      fetchSessions();
+    } catch (error) {
+      clearInterval(stepInterval);
+      setPipelineStep(0);
+      setChatHistory(prev => [...prev, { role: 'Assistant', content: "⚠️ Erreur de communication stratégique. Veuillez réactiver le service." }]);
+    } finally {
+      setTimeout(() => {
         setLoading(false);
         setPipelineStep(0);
-      }
-    } else {
-      // Court → pas d'animation pipeline
-      try {
-        const title = textToSend.substring(0, 30);
-        const response = await api.post('/ai/chat/admin/chat', {
-          message: textToSend, history: chatHistory, sessionId: currentSessionId, sessionTitle: title
-        });
-        if (response.data.pipeline) setLastPipelineMeta(response.data.pipeline);
-        setChatHistory(prev => [...prev, { role: 'Assistant', content: response.data.message, pipeline: response.data.pipeline }]);
-        fetchSessions();
-      } catch (error) {
-        setChatHistory(prev => [...prev, { role: 'Assistant', content: "Désolé, une erreur est survenue." }]);
-      } finally {
-        setLoading(false);
-        setPipelineStep(0);
-      }
+      }, 500);
     }
   };
 
@@ -218,178 +392,279 @@ const AIDashboard = () => {
   const parseContent = (content) => {
     if (!content) return null;
 
-    // 1. Supprimer les balises <SQL>...</SQL> de l'affichage (usage interne uniquement)
+    // 1. Supprimer les balises <SQL> de l'affichage
     let displayContent = content.replace(/<SQL>[\s\S]*?<\/SQL>/g, '').trim();
 
     const elements = [];
-    // Regex pour les balises auto-fermantes CHART, EXPORT, ACTION (avec tolérance guillemets simples/doubles)
-    const tagRegex = /<(CHART|EXPORT|ACTION)[^>]*\/>/g;
+    // Regex robuste pour les balises
+    const tagRegex = /<(CHART|EXPORT|ACTION|IMAGE_GRID|MENU_FORM|STRATEGY_INSIGHT)([\s\S]*?)\/?>/g;
     let match, currentPos = 0;
 
+    const extractAttribute = (attributes, name) => {
+      const regex = new RegExp(`${name}\\s*=\\s*(['"])([\\s\\S]*?)\\1`);
+      const m = attributes.match(regex);
+      if (m) return m[2];
+      
+      const lookFor = `${name}=`;
+      const startIdx = attributes.indexOf(lookFor);
+      if (startIdx !== -1) {
+        const quote = attributes[startIdx + lookFor.length];
+        const contentStart = startIdx + lookFor.length + 1;
+        const contentEnd = attributes.indexOf(quote, contentStart);
+        if (contentEnd !== -1) return attributes.substring(contentStart, contentEnd);
+      }
+      return null;
+    };
+
     while ((match = tagRegex.exec(displayContent)) !== null) {
-      // Texte Markdown avant le tag
-      if (match.index > currentPos) {
-        const textChunk = displayContent.substring(currentPos, match.index).trim();
+      const startIdx = match.index;
+      
+      // Texte avant le tag
+      if (startIdx > currentPos) {
+        const textChunk = displayContent.substring(currentPos, startIdx).trim();
         if (textChunk) {
           elements.push(
-            <ReactMarkdown key={`md-${match.index}`} remarkPlugins={[remarkGfm]}>
-              {textChunk}
-            </ReactMarkdown>
-          );
-        }
-      }
-
-      const tag = match[0];
-
-      // ── CHART ──────────────────────────────────────────────────
-      if (tag.startsWith('<CHART')) {
-        try {
-          const typeMatch = tag.match(/type=["'](.*?)["']/);
-          const dataMatch = tag.match(/data=['"](\{[\s\S]*?\})["']/);
-          if (typeMatch && dataMatch) {
-            const chartType = typeMatch[1];
-            // Parser JSON robuste (gère les guillemets simples)
-            const dataStr = dataMatch[1]
-              .replace(/'/g, '"')
-              .replace(/(\w+):/g, '"$1":'); // tentative de fix clé sans guillemets
-
-            let chartData;
-            try { chartData = JSON.parse(dataStr); } catch { chartData = null; }
-
-            elements.push(
-              <Box key={`chart-${match.index}`} sx={{
-                my: 3, p: 2.5,
-                bgcolor: 'rgba(0,0,0,0.25)',
-                border: '1px solid rgba(99,102,241,0.2)',
-                borderRadius: 3,
-                backdropFilter: 'blur(10px)',
-                animation: 'fadeIn 0.4s ease'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <Box sx={{ width: 3, height: 16, bgcolor: '#818cf8', borderRadius: 2 }} />
-                  <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                    Visualisation · {chartType.toUpperCase()}
-                  </Typography>
-                </Box>
-                {chartData
-                  ? <ChatChart type={chartType} data={chartData} />
-                  : <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)' }}>
-                      Données graphique non parsées.
-                    </Typography>
-                }
-              </Box>
-            );
-          }
-        } catch(e) { console.warn('CHART parse error:', e); }
-
-      // ── EXPORT (Téléchargement PDF) ─────────────────────────────
-      } else if (tag.startsWith('<EXPORT')) {
-        try {
-          const typeMatch = tag.match(/type=["'](.*?)["']/);
-          const dataMatch = tag.match(/data=['"](\{.*?\})["']/);
-          if (typeMatch) {
-            const reportType = typeMatch[1].replace(/_/g, ' ');
-            let exportContent = '';
-            if (dataMatch) {
-              try { exportContent = JSON.parse(dataMatch[1].replace(/'/g, '"')).content || ''; } catch {}
-            }
-            elements.push(
-              <Box key={`export-${match.index}`} sx={{
-                my: 2.5, p: 2.5,
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(192,132,252,0.08) 100%)',
-                border: '1px solid rgba(99,102,241,0.25)',
-                borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2,
-                animation: 'fadeIn 0.3s ease'
-              }}>
-                <Box sx={{ fontSize: '2rem' }}>📄</Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 700 }}>
-                    Rapport : {reportType}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Cliquez pour télécharger l'audit complet en PDF
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<PdfIcon />}
-                  onClick={() => exportToPDF(exportContent || content, reportType)}
-                  sx={{ borderRadius: 8, textTransform: 'none', fontWeight: 700, whitespace: 'nowrap',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    boxShadow: '0 4px 15px rgba(99,102,241,0.3)'
-                  }}
-                >
-                  PDF
-                </Button>
-              </Box>
-            );
-          }
-        } catch(e) { console.warn('EXPORT parse error:', e); }
-
-      // ── ACTION (Bouton SQL) ─────────────────────────────────────
-      } else if (tag.startsWith('<ACTION')) {
-        const sqlMatch = tag.match(/sql=["'](.*?)["']/);
-        const labelMatch = tag.match(/label=["'](.*?)["']/);
-        if (sqlMatch && labelMatch) {
-          elements.push(
-            <Box key={`action-${match.index}`} sx={{
-              my: 2, p: 2,
-              bgcolor: 'rgba(251,191,36,0.05)',
-              border: '1px solid rgba(251,191,36,0.2)',
-              borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2,
-              animation: 'fadeIn 0.3s ease'
-            }}>
-              <Box sx={{ fontSize: '1.2rem' }}>⚡</Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#fbbf24', fontWeight: 700, display: 'block' }}>
-                  Action recommandée
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                  {sqlMatch[1].substring(0, 60)}...
-                </Typography>
-              </Box>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => handleExecuteAction(sqlMatch[1])}
-                sx={{ borderRadius: 8, textTransform: 'none', fontWeight: 700,
-                  borderColor: 'rgba(251,191,36,0.4)', color: '#fbbf24',
-                  '&:hover': { bgcolor: 'rgba(251,191,36,0.1)' }
-                }}
-              >
-                {labelMatch[1]}
-              </Button>
+            <Box key={`md-${startIdx}`} className="markdown-content" sx={{ mb: 2 }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{textChunk}</ReactMarkdown>
             </Box>
           );
         }
       }
 
-      currentPos = match.index + tag.length;
+      const tagName = match[1];
+      const tagAttributes = match[2];
+
+      // Rendu selon le type
+      if (tagName === 'STRATEGY_INSIGHT') {
+        const title = extractAttribute(tagAttributes, 'title');
+        const text = extractAttribute(tagAttributes, 'text');
+        const impact = extractAttribute(tagAttributes, 'impact');
+        elements.push(
+          <Box key={`insight-${startIdx}`} sx={{ 
+            my: 3, p: 3, borderRadius: 3, 
+            bgcolor: 'rgba(251,146,60,0.05)',
+            border: '1px solid rgba(251,146,60,0.2)',
+          }}>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
+              <IdeaIcon sx={{ color: 'primary.main', fontSize: 24 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'white' }}>{title}</Typography>
+            </Stack>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, lineHeight: 1.6 }}>{text}</Typography>
+            <Chip label={impact} size="small" color="primary" sx={{ fontWeight: 800, fontSize: '0.7rem' }} />
+          </Box>
+        );
+      } else if (tagName === 'CHART') {
+        const chartType = extractAttribute(tagAttributes, 'type');
+        const dataStr = extractAttribute(tagAttributes, 'data');
+        if (chartType && dataStr) {
+          try {
+            const chartData = JSON.parse(dataStr.replace(/'/g, '"'));
+            elements.push(<Box key={`chart-${startIdx}`} sx={{ my: 3 }}><ChatChart type={chartType} data={chartData} /></Box>);
+          } catch(e) {}
+        }
+      } else if (tagName === 'IMAGE_GRID') {
+        const imagesStr = extractAttribute(tagAttributes, 'images');
+        if (imagesStr) {
+          try {
+            const images = JSON.parse(imagesStr.replace(/'/g, '"').replace(/&quot;/g, '"'));
+            elements.push(
+              <Box key={`images-${startIdx}`} sx={{ my: 3, p: 2.5, bgcolor: 'rgba(251,146,60,0.03)', borderRadius: 5, border: '1px dotted rgba(251,146,60,0.4)', position: 'relative', overflow: 'hidden' }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', bgcolor: '#FB923C' }} />
+                <Typography variant="overline" sx={{ color: '#FB923C', fontWeight: 900, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                   <PhotoIcon sx={{ fontSize: 16 }} /> GALERIE DE SUGGESTIONS IA
+                </Typography>
+                <Grid container spacing={2}>
+                  {images.slice(0, 5).map((img, i) => (
+                    <Grid item xs={12} sm={6} md={2.4} key={i}>
+                      <Paper elevation={0} onClick={() => handleSend(`Je choisis l'image ${i+1} : ${img}`)}
+                        sx={{ 
+                          height: 140, backgroundImage: `url(${img})`, backgroundSize: 'cover', backgroundPosition: 'center',
+                          borderRadius: 4, cursor: 'pointer', border: '2px solid rgba(255,255,255,0.05)', transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                          '&:hover': { borderColor: '#FB923C', transform: 'scale(1.05)', boxShadow: '0 15px 30px rgba(0,0,0,0.5)' },
+                          display: 'flex', alignItems: 'flex-end', p: 1
+                        }}>
+                        <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.6)', color: 'white', px: 1, borderRadius: 1, fontSize: '0.6rem', backdropFilter: 'blur(4px)' }}>Options {i+1}</Typography>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            );
+          } catch(e) {}
+        }
+      } else if (tagName === 'MENU_FORM') {
+        const name = extractAttribute(tagAttributes, 'name');
+        const desc = extractAttribute(tagAttributes, 'description');
+        const price = extractAttribute(tagAttributes, 'price');
+        const img = extractAttribute(tagAttributes, 'image');
+        const category = extractAttribute(tagAttributes, 'category');
+        elements.push(
+          <Box key={`form-${startIdx}`} sx={{ my: 3, p: 3, background: 'linear-gradient(135deg, rgba(251,146,60,0.08) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(251,146,60,0.2)', borderRadius: 5 }}>
+            <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 800, mb: 3 }}>Publication au Catalogue</Typography>
+            <Stack spacing={3}>
+              <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
+                 <Avatar variant="rounded" src={img} sx={{ width: 80, height: 80, borderRadius: 3, border: '2px solid rgba(251,146,60,0.3)' }} />
+                 <Box sx={{ flex: 1 }}>
+                   <Typography variant="h6" sx={{ color: '#FB923C', fontWeight: 800 }}>{name}</Typography>
+                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mt: 1 }}>{desc}</Typography>
+                 </Box>
+              </Box>
+
+              <FormControl fullWidth variant="filled" size="small">
+                <InputLabel sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 900 }}>Catégorie de destination</InputLabel>
+                <Select
+                  id={`cat-select-${startIdx}`}
+                  defaultValue={categories?.find(c => c.name.toLowerCase().includes(category?.toLowerCase()))?.name || categories[0]?.name || "Divers"}
+                  disableUnderline
+                  sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 2, color: 'white', fontWeight: 700 }}
+                >
+                  {categories?.map(c => <MenuItem key={c.idCat} value={c.name}>{c.name}</MenuItem>)}
+                  <MenuItem value="Divers">Divers (Par défaut)</MenuItem>
+                </Select>
+              </FormControl>
+
+              <Grid container spacing={2}>
+                <Grid item xs={6}><TextField label="Prix (FCFA)" defaultValue={price} size="small" id={`price-${startIdx}`} fullWidth variant="filled" InputProps={{ disableUnderline: true }} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 2, '& input': { color: 'white', fontWeight: 700 } }} /></Grid>
+                <Grid item xs={6}><TextField label="Stock initial" defaultValue="50" size="small" id={`stock-${startIdx}`} fullWidth variant="filled" InputProps={{ disableUnderline: true }} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 2, '& input': { color: 'white', fontWeight: 700 } }} /></Grid>
+              </Grid>
+
+              <Button variant="contained" fullWidth onClick={() => {
+                const p = document.getElementById(`price-${startIdx}`).value;
+                const s = document.getElementById(`stock-${startIdx}`).value;
+                const c = document.getElementById(`cat-select-${startIdx}`).innerText; // Fallback pour Select simple
+                handleCreateMenu({ name, description: desc, price: p, stock: s, image: img, category: c });
+              }} sx={{ background: 'linear-gradient(90deg, #FB923C, #FB923C)', fontWeight: 900, py: 1.5, borderRadius: 3 }}>Confirmer la Publication</Button>
+            </Stack>
+          </Box>
+        );
+      } else if (tagName === 'EXPORT') {
+        const typeAttr = extractAttribute(tagAttributes, 'type');
+        const dataAttr = extractAttribute(tagAttributes, 'data');
+        if (typeAttr) {
+          elements.push(
+            <Box key={`export-${startIdx}`} sx={{ my: 3, p: 2.5, bgcolor: 'rgba(251,146,60,0.1)', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+              <PdfIcon sx={{ color: '#FB923C', fontSize: 28 }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ color: 'white', fontWeight: 800 }}>Rapport : {typeAttr.replace(/_/g, ' ')}</Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>Prêt pour téléchargement</Typography>
+              </Box>
+              <IconButton onClick={() => exportToPDF(dataAttr || content, typeAttr)} sx={{ bgcolor: '#FB923C', color: 'white', '&:hover': { bgcolor: '#FB923C' } }}><PdfIcon /></IconButton>
+            </Box>
+          );
+        }
+      } else if (tagName === 'KPI') {
+        const title = extractAttribute(tagAttributes, 'title');
+        const value = extractAttribute(tagAttributes, 'value');
+        const trend = extractAttribute(tagAttributes, 'trend');
+        const isUp = trend?.startsWith('+');
+        elements.push(
+          <Box key={`kpi-${startIdx}`} sx={{ 
+            p: 2, borderRadius: 3, bgcolor: 'rgba(248,250,252,0.03)', border: '1px solid rgba(248,250,252,0.05)',
+            minWidth: 140, flex: 1, my: 1
+          }}>
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 900, textTransform: 'uppercase' }}>{title}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 900, color: 'white' }}>{value}</Typography>
+              {trend && <Typography variant="caption" sx={{ color: isUp ? '#10B981' : '#EF4444', fontWeight: 900 }}>{trend}</Typography>}
+            </Box>
+          </Box>
+        );
+      } else if (tagName === 'EXCEL') {
+        const dataStr = extractAttribute(tagAttributes, 'data');
+        const filename = extractAttribute(tagAttributes, 'filename') || 'export.csv';
+        const handleExport = () => {
+          try {
+            const data = JSON.parse(dataStr);
+            const headers = Object.keys(data[0]);
+            const csv = [headers.join(','), ...data.map(row => headers.map(h => `"${row[h]}"`).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+          } catch(e) {}
+        };
+        elements.push(
+          <Button key={`excel-${startIdx}`} variant="outlined" onClick={handleExport} startIcon={<ArticleIcon />} sx={{ my: 1, borderRadius: 2, borderColor: 'primary.main', color: 'primary.main', fontWeight: 800 }}>
+            Télécharger Excel
+          </Button>
+        );
+      } else if (tagName === 'STRATEGY_INSIGHT') {
+        const title = extractAttribute(tagAttributes, 'title');
+        const text = extractAttribute(tagAttributes, 'text');
+        elements.push(
+          <Box key={`strat-${startIdx}`} sx={{ 
+            my: 3, p: 3, 
+            bgcolor: 'rgba(251,146,60,0.03)', 
+            border: '1px solid rgba(251,146,60,0.1)',
+            borderLeft: '6px solid #FB923C', 
+            borderRadius: '0 16px 16px 0',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+          }}>
+            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 900, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PsychologyIcon /> {title}
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.7, fontStyle: 'italic' }}>{text}</Typography>
+          </Box>
+        );
+      } else if (tagName === 'DECISION_TOOL') {
+        const question = extractAttribute(tagAttributes, 'question');
+        const opt1 = extractAttribute(tagAttributes, 'opt1');
+        const sql1 = extractAttribute(tagAttributes, 'sql1');
+        const opt2 = extractAttribute(tagAttributes, 'opt2');
+        const sql2 = extractAttribute(tagAttributes, 'sql2');
+        elements.push(
+          <Box key={`decision-${startIdx}`} sx={{ 
+            my: 4, p: 4, borderRadius: 4, 
+            background: 'linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9))',
+            border: '1px solid rgba(251,146,60,0.3)',
+            textAlign: 'center'
+          }}>
+            <Typography variant="h5" sx={{ color: 'white', fontWeight: 900, mb: 3 }}>🤔 Aide à la Décision</Typography>
+            <Typography variant="body1" sx={{ color: 'text.secondary', mb: 4 }}>{question}</Typography>
+            <Stack direction="row" spacing={2} justifyContent="center">
+              <Button variant="contained" onClick={() => handleExecuteAction(sql1)} sx={{ bgcolor: 'primary.main', fontWeight: 800, px: 4 }}>{opt1}</Button>
+              <Button variant="outlined" onClick={() => handleExecuteAction(sql2)} sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.2)', fontWeight: 800, px: 4 }}>{opt2}</Button>
+            </Stack>
+          </Box>
+        );
+      } else if (tagName === 'SMART_ACTIONS') {
+        const actionsStr = extractAttribute(tagAttributes, 'actions');
+        try {
+          const actions = JSON.parse(actionsStr.replace(/'/g, '"').replace(/&quot;/g, '"'));
+          elements.push(
+            <Box key={`smart-${startIdx}`} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 3 }}>
+              {actions.map((act, i) => (
+                <Button 
+                  key={i} size="small" variant="outlined" 
+                  onClick={() => handleSend(act.cmd)}
+                  startIcon={<AutoFixHighIcon sx={{ fontSize: 14 }} />}
+                  sx={{ 
+                    borderRadius: 10, borderColor: 'rgba(251,146,60,0.3)', color: '#FB923C', 
+                    fontSize: '0.75rem', textTransform: 'none', px: 2, bgcolor: 'rgba(251,146,60,0.02)',
+                    '&:hover': { borderColor: '#FB923C', bgcolor: 'rgba(251,146,60,0.1)' }
+                  }}>
+                  {act.label}
+                </Button>
+              ))}
+            </Box>
+          );
+        } catch(e) {}
+      }
+
+      currentPos = match.index + match[0].length;
     }
 
-    // Texte restant après le dernier tag
+    // Reste du texte
     if (currentPos < displayContent.length) {
       const remaining = displayContent.substring(currentPos).trim();
       if (remaining) {
-        elements.push(
-          <ReactMarkdown key="md-end" remarkPlugins={[remarkGfm]}>
-            {remaining}
-          </ReactMarkdown>
-        );
+        elements.push(<Box key="md-end" className="markdown-content"><ReactMarkdown remarkPlugins={[remarkGfm]}>{remaining}</ReactMarkdown></Box>);
       }
     }
 
-    // Si aucun tag trouvé, rendu Markdown pur
-    if (elements.length === 0) {
-      return (
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {displayContent}
-        </ReactMarkdown>
-      );
-    }
-
-    return elements;
+    return elements.length > 0 ? elements : <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>;
   };
 
 
@@ -405,316 +680,353 @@ const AIDashboard = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', bgcolor: '#0a0a1a' }}>
+    <ThemeProvider theme={aiTheme}>
+    <Box sx={{ 
+      display: 'flex', flexDirection: 'column', 
+      height: '100%', width: '100%', 
+      bgcolor: 'background.default', color: 'text.primary', 
+      overflow: 'hidden', // Empêche le scroll global du composant
+      position: 'relative'
+    }}>
       <GlobalStyles styles={{
-        '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } },
-        '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'none' } },
         '*::-webkit-scrollbar': { width: '4px' },
-        '*::-webkit-scrollbar-thumb': { background: 'rgba(99,102,241,0.3)', borderRadius: '10px' },
-
-        // Tables — design premium dark
+        '*::-webkit-scrollbar-thumb': { background: 'rgba(251,146,60,0.2)', borderRadius: '10px' },
+        '.markdown-content': { color: '#F8FAFC', lineHeight: 1.8, fontSize: '1rem' },
+        '.markdown-content h2': { color: 'white', mt: 5, mb: 2, fontWeight: 900, fontSize: '1.8rem', borderBottom: '2px solid #FB923C', pb: 1, display: 'inline-block' },
+        '.markdown-content h3': { color: 'primary.main', mt: 4, mb: 2, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 },
+        '.markdown-content strong': { color: '#FB923C', fontWeight: 800 },
         '.markdown-content table': {
-          width: '100%', borderCollapse: 'collapse',
-          margin: '20px 0', borderRadius: '12px', overflow: 'hidden',
-          border: '1px solid rgba(99,102,241,0.2)',
-          animation: 'fadeIn 0.3s ease'
+          width: '100%', borderCollapse: 'separate', borderSpacing: 0, my: 3,
+          borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(248,250,252,0.05)',
+          bgcolor: 'rgba(15,23,42,0.3)'
         },
-        '.markdown-content th': {
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(99,102,241,0.1))',
-          color: '#818cf8', fontWeight: '700', padding: '12px 16px',
-          textAlign: 'left', fontSize: '0.78rem', letterSpacing: '0.05em',
-          textTransform: 'uppercase', borderBottom: '1px solid rgba(99,102,241,0.3)'
-        },
-        '.markdown-content td': {
-          padding: '10px 16px', color: '#e2e8f0', fontSize: '0.88rem',
-          borderBottom: '1px solid rgba(255,255,255,0.04)', verticalAlign: 'middle'
-        },
-        '.markdown-content tr:last-child td': { borderBottom: 'none' },
-        '.markdown-content tr:hover td': { background: 'rgba(99,102,241,0.06)' },
-        '.markdown-content tbody tr:nth-child(even) td': { background: 'rgba(255,255,255,0.02)' },
-
-        // Headings
-        '.markdown-content h1': { color: '#c084fc', fontSize: '1.4rem', fontWeight: 900, margin: '24px 0 12px', borderBottom: '1px solid rgba(192,132,252,0.2)', paddingBottom: '8px' },
-        '.markdown-content h2': { color: '#818cf8', fontSize: '1.15rem', fontWeight: 800, margin: '20px 0 10px' },
-        '.markdown-content h3': { color: '#93c5fd', fontSize: '1rem', fontWeight: 700, margin: '16px 0 8px' },
-
-        // Paragraphes & listes
-        '.markdown-content p': { marginBottom: '12px', lineHeight: 1.75, color: '#cbd5e1' },
-        '.markdown-content ul, .markdown-content ol': { paddingLeft: '20px', marginBottom: '12px' },
-        '.markdown-content li': { marginBottom: '6px', color: '#cbd5e1', lineHeight: 1.6 },
-        '.markdown-content li::marker': { color: '#818cf8' },
-
-        // Code inline
-        '.markdown-content code': {
-          background: 'rgba(99,102,241,0.15)', color: '#c084fc',
-          padding: '2px 7px', borderRadius: '5px', fontSize: '0.82rem', fontFamily: 'monospace'
-        },
-        // Code block
-        '.markdown-content pre': {
-          background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.2)',
-          borderRadius: '10px', padding: '16px', overflow: 'auto', margin: '12px 0'
-        },
-        '.markdown-content pre code': { background: 'none', color: '#a5f3fc', padding: 0, fontSize: '0.8rem' },
-
-        // Strong & em
-        '.markdown-content strong': { color: '#818cf8', fontWeight: 700 },
-        '.markdown-content em': { color: '#94a3b8', fontStyle: 'italic' },
-
-        // Blockquote
-        '.markdown-content blockquote': {
-          borderLeft: '3px solid #818cf8', paddingLeft: '12px',
-          margin: '12px 0', color: '#94a3b8', fontStyle: 'italic'
-        },
-
-        // HR
-        '.markdown-content hr': { border: 'none', borderTop: '1px solid rgba(255,255,255,0.07)', margin: '20px 0' },
+        '.markdown-content th': { bgcolor: 'rgba(248,250,252,0.05)', color: '#FB923C', p: 2, textAlign: 'left', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.75rem' },
+        '.markdown-content td': { p: 2, borderBottom: '1px solid rgba(248,250,252,0.03)', color: 'rgba(248,250,252,0.8)' }
       }} />
 
-      {/* Modern Header */}
+      {/* ── BARRE D'OUTILS IA (FIXE & DESIGN GLASS) ────────────────────────────── */}
       <Box sx={{ 
-        p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'linear-gradient(180deg, rgba(99,102,241,0.05) 0%, transparent 100%)'
+        p: 2, px: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        bgcolor: 'rgba(30, 41, 59, 0.8)', // Même Ardoise mais semi-transparente
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(248,250,252,0.05)',
+        zIndex: 3000,
+        position: 'relative'
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <IconButton onClick={() => setSidebarOpen(true)} sx={{ color: 'primary.main', bgcolor: 'rgba(99,102,241,0.1)' }}>
-            <HistoryIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ 
-            fontWeight: '900', 
-            background: 'linear-gradient(90deg, #818cf8 0%, #c084fc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: -0.5
-          }}>
-            GOURMI IQ
-          </Typography>
+        {/* NAVIGATION DES MODES (CENTRE ABSOLU) */}
+        <Box sx={{ 
+          display: 'flex', gap: 1, bgcolor: 'rgba(248,250,252,0.03)', p: 0.5, borderRadius: 3,
+          border: '1px solid rgba(248,250,252,0.05)'
+        }}>
+          {[
+            { id: 'chat', label: 'Assistant', icon: <ChatIcon sx={{ fontSize: 18 }} /> },
+            { id: 'dashboard', label: 'Audit', icon: <StrategyIcon sx={{ fontSize: 18 }} /> },
+            { id: 'reports', label: 'Archives', icon: <ReportIcon sx={{ fontSize: 18 }} /> }
+          ].map((mode) => (
+            <Button
+              key={mode.id}
+              onClick={() => setViewMode(mode.id)}
+              startIcon={mode.icon}
+              size="small"
+              sx={{
+                px: 3, py: 1, borderRadius: 2,
+                color: viewMode === mode.id ? 'primary.main' : 'text.disabled',
+                bgcolor: viewMode === mode.id ? 'rgba(251,146,60,0.08)' : 'transparent',
+                fontWeight: 800, textTransform: 'none',
+                transition: 'all 0.2s',
+                '&:hover': { bgcolor: 'rgba(248,250,252,0.05)', color: 'white' }
+              }}
+            >
+              {mode.label}
+            </Button>
+          ))}
         </Box>
-        <Chip 
-          icon={<SparkleIcon style={{ color: '#818cf8', fontSize: 14 }} />} 
-          label="Agent Premium" 
-          sx={{ bgcolor: 'rgba(99,102,241,0.1)', color: '#818cf8', fontWeight: 'bold', fontSize: '0.7rem' }} 
-        />
+        
+        {/* ACTIONS SECONDAIRES (FLOAT DROITE) */}
+        <Box sx={{ position: 'absolute', right: 32, display: 'flex', gap: 1 }}>
+          <Tooltip title="Imprimer">
+            <IconButton sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}>
+              <PrintIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Historique">
+            <IconButton onClick={() => setSidebarOpen(true)} sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}>
+              <HistoryIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
-      {/* Sidebar for History */}
+      {/* BARRE DE CHARGEMENT SUBTILE (Design Minimaliste) */}
+      {loading && (
+        <Box sx={{ width: '100%', zIndex: 2500 }}>
+          <LinearProgress 
+            sx={{ 
+              height: 2, bgcolor: 'transparent',
+              '& .MuiLinearProgress-bar': { bgcolor: 'primary.main' }
+            }} 
+          />
+        </Box>
+      )}
+
+      {/* ── ZONE DE CONTENU VARIABLE ────────────────────────────── */}
+      <Box ref={scrollRef} sx={{ 
+        flexGrow: 1, 
+        overflowY: 'auto', 
+        position: 'relative', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        pb: 32, // ZONE DE SÉCURITÉ POUR LA BARRE FLOTTANTE
+        scrollBehavior: 'smooth',
+        // Scrollbar subtile
+        '&::-webkit-scrollbar': { width: '4px' },
+        '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '10px' },
+        '&::-webkit-scrollbar-track': { bgcolor: 'transparent' }
+      }}>
+        
+        {viewMode === 'chat' ? (
+          <Box sx={{ 
+            p: { xs: 3, md: 8 },
+            background: 'radial-gradient(circle at 50% 30%, rgba(251,146,60,0.03) 0%, transparent 60%)',
+          }}>
+            <Container maxWidth="xl">
+              {chatHistory.length <= 1 ? (
+                <Box sx={{ py: 10, textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+                  <Typography variant="h1" sx={{ fontWeight: 1000, mb: 2, letterSpacing: -4, color: '#F8FAFC' }}>
+                    Intelligence <span style={{ color: '#FB923C' }}>Gourmi</span>
+                  </Typography>
+                  <Typography variant="h6" sx={{ color: 'text.secondary', mb: 8, fontWeight: 500 }}>
+                    Que souhaitez-vous analyser ou créer aujourd'hui ?
+                  </Typography>
+                  
+                  <Grid container spacing={4} justifyContent="center">
+                    {[
+                      { icon: <StatsIcon />, title: "Analyses & Rapports", desc: "Performance financière et tendances", mode: 'dashboard' },
+                      { icon: <StrategyIcon />, title: "Audit des Stocks", desc: "Optimisation et alertes périssables", mode: 'audit' }
+                    ].map((card, i) => (
+                      <Grid item xs={12} md={5} key={i}>
+                        <Paper 
+                          onClick={() => setViewMode(card.mode)}
+                          sx={{ 
+                            p: 4, borderRadius: 4, bgcolor: 'rgba(248,250,252,0.02)', 
+                            border: '1px solid rgba(248,250,252,0.05)', cursor: 'pointer',
+                            transition: 'all 0.3s ease', textAlign: 'left',
+                            display: 'flex', alignItems: 'center', gap: 3,
+                            '&:hover': { bgcolor: 'rgba(251,146,60,0.04)', transform: 'translateY(-5px)', borderColor: 'primary.main' }
+                          }}
+                        >
+                          <Avatar sx={{ bgcolor: 'rgba(251,146,60,0.1)', color: 'primary.main', width: 56, height: 56 }}>
+                            {React.cloneElement(card.icon, { sx: { fontSize: 28 } })}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 900, color: 'white' }}>{card.title}</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>{card.desc}</Typography>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              ) : (
+                <Box sx={{ animation: 'fadeIn 0.3s ease' }}>
+                  <Stack spacing={8} sx={{ pb: 10 }}>
+                    {chatHistory.map((item, idx) => (
+                      <Box key={idx} sx={{ 
+                        display: 'flex', 
+                        gap: 2, 
+                        flexDirection: item.role === 'User' ? 'row-reverse' : 'row',
+                        mb: 4
+                      }}>
+                        <Avatar sx={{ 
+                          bgcolor: item.role === 'Assistant' ? 'primary.main' : 'rgba(255,255,255,0.1)', 
+                          width: 38, height: 38, 
+                          fontSize: 14, fontWeight: 900,
+                          boxShadow: item.role === 'Assistant' ? '0 0 15px rgba(251,146,60,0.2)' : 'none'
+                        }}>
+                          {item.role === 'Assistant' ? <PsychologyIcon sx={{ fontSize: 20 }} /> : 'AD'}
+                        </Avatar>
+                        <Box sx={{ 
+                          maxWidth: '85%', 
+                          p: item.role === 'Assistant' ? 0 : 2.5, 
+                          borderRadius: item.role === 'Assistant' ? 0 : '20px 20px 5px 20px', 
+                          bgcolor: item.role === 'Assistant' ? 'transparent' : 'rgba(248,250,252,0.03)',
+                          border: item.role === 'Assistant' ? 'none' : '1px solid rgba(248,250,252,0.05)'
+                        }}>
+                          {parseContent(item.content)}
+                        </Box>
+                      </Box>
+                    ))}
+                    {/* Indicateur de chargement simplifié dans le flux */}
+                  </Stack>
+                </Box>
+              )}
+            </Container>
+          </Box>
+        ) : (viewMode === 'dashboard' || viewMode === 'audit') ? (
+          <Container maxWidth="lg" sx={{ py: 6 }}>
+             <Typography variant="h3" sx={{ fontWeight: 1000, mb: 1, letterSpacing: -2 }}>Centre <span style={{ color: '#FB923C' }}>d'Audit</span></Typography>
+             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)', mb: 6, fontWeight: 700, letterSpacing: 1 }}>SYNTHÈSE STRATÉGIQUE GÉNÉRÉE PAR L'IA</Typography>
+             <Grid container spacing={4}>
+                {getStrategicElements().length > 0 ? getStrategicElements().map((el, i) => (
+                  <Grid item xs={12} md={el.type === 'CHART' ? 12 : 6} key={i}>
+                     <Box sx={{ p: 4, borderRadius: 6, bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(251,146,60,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                        {parseContent(el.type === 'CHART' ? `<CHART ${el.attrs} />` : `<STRATEGY_INSIGHT ${el.attrs} />`)}
+                     </Box>
+                  </Grid>
+                )) : (
+                  <Box sx={{ p: 10, textAlign: 'center', width: '100%', opacity: 0.2 }}>
+                     <StrategyIcon sx={{ fontSize: 80, mb: 2 }} />
+                     <Typography variant="h6">Aucune donnée stratégique capturée.</Typography>
+                  </Box>
+                )}
+             </Grid>
+          </Container>
+        ) : (
+          <Container maxWidth="lg" sx={{ py: 6 }}>
+             <Typography variant="h3" sx={{ fontWeight: 1000, mb: 1, letterSpacing: -2 }}>Vos <span style={{ color: '#FB923C' }}>Rapports</span></Typography>
+             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)', mb: 6, fontWeight: 700, letterSpacing: 1 }}>HISTORIQUE ET EXPORTS PDF</Typography>
+             <Stack spacing={2}>
+               {sessions.map((s, idx) => (
+                 <Paper key={idx} sx={{ p: 3, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s', '&:hover': { bgcolor: 'rgba(251,146,60,0.04)', borderColor: '#FB923C' } }}>
+                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <ReportIcon sx={{ color: '#FB923C' }} />
+                      <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 800 }}>{s.sessionTitle || `Session ${idx + 1}`}</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)' }}>ID: {s.sessionId.substring(0, 15)}...</Typography>
+                      </Box>
+                   </Box>
+                   <Button variant="outlined" size="small" onClick={() => fetchHistory(s.sessionId)} sx={{ borderColor: 'rgba(251,146,60,0.3)', color: '#FB923C', borderRadius: 2 }}>Ouvrir</Button>
+                 </Paper>
+               ))}
+             </Stack>
+          </Container>
+        )}
+      </Box>
+
+       {/* ── BARRE DE SAISIE FLOTTANTE (Style Gemini) ────────────────────────── */}
+       <Box sx={{ 
+        position: 'absolute', bottom: 30, left: 0, right: 0, 
+        zIndex: 2000, px: { xs: 2, md: 4 },
+        pointerEvents: 'none',
+        // On s'assure qu'elle ne bouge jamais d'un poil
+        transform: 'translateZ(0)'
+      }}>
+        <Container maxWidth="md" sx={{ pointerEvents: 'auto' }}>
+          {/* Prompt Suggestions */}
+          <Stack direction="row" spacing={1.5} sx={{ mb: 2, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' } }}>
+            {promptSuggestions.map((s, idx) => (
+              <Chip 
+                key={idx} 
+                label={s.label} 
+                icon={<span>{s.icon}</span>}
+                onClick={() => handleSend(s.label)}
+                sx={{ 
+                  bgcolor: 'rgba(248,250,252,0.03)', 
+                  color: 'rgba(251,146,60,0.8)', 
+                  border: '1px solid rgba(248,250,252,0.05)',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  '&:hover': { bgcolor: 'rgba(251,146,60,0.12)', borderColor: '#FB923C' }
+                }} 
+              />
+            ))}
+          </Stack>
+
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 1.5, pl: 3, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 2,
+              bgcolor: 'rgba(30, 41, 59, 0.7)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(248,250,252,0.1)',
+              boxShadow: '0 10px 50px rgba(0,0,0,0.3)',
+              '&:focus-within': { borderColor: 'primary.main', border: '1px solid rgba(251,146,60,0.4)', bgcolor: 'rgba(30, 41, 59, 0.9)' },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+          >
+            <TextField 
+              fullWidth 
+              multiline
+              maxRows={5}
+              placeholder="Posez votre question à Gourmi IQ..."
+              variant="standard" 
+              value={message}
+              onChange={(e) => setMessage(e.target.value)} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              InputProps={{ 
+                disableUnderline: true, 
+                sx: { 
+                  color: 'white', 
+                  fontWeight: 500, 
+                  fontSize: '0.95rem',
+                  py: 1
+                } 
+              }} 
+            />
+
+               <IconButton 
+                 onClick={() => handleSend()} 
+                 disabled={loading || !message.trim()} 
+                 sx={{ 
+                   alignSelf: 'flex-end', // Aligné en bas si le texte grandit
+                   mb: 0.5,
+                   bgcolor: 'primary.main', color: 'white', 
+                   borderRadius: 2,
+                   '&:hover': { bgcolor: 'primary.dark' },
+                   '&.Mui-disabled': { bgcolor: 'rgba(248,250,252,0.05)', color: 'rgba(248,250,252,0.1)' },
+                   p: 1, transition: 'all 0.2s'
+                 }}
+               >
+                 <SendIcon fontSize="small" />
+               </IconButton>
+          </Paper>
+          <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1.5, color: 'rgba(255,255,255,0.2)', fontWeight: 700, letterSpacing: 0.5 }}>
+            GOURMI IQ AI · OPTIMISATION EN TEMPS RÉEL ACTURÉE
+          </Typography>
+        </Container>
+      </Box>
+
+      {/* ── DRAWER D'HISTORIQUE (Temporaire) ───────────────────────── */}
       <Drawer
-        anchor="left"
+        anchor="right"
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        PaperProps={{ sx: { width: 320, bgcolor: 'rgba(10,10,26,0.95)', backdropFilter: 'blur(10px)', p: 3, borderRight: '1px solid rgba(255,255,255,0.1)' } }}
+        PaperProps={{ 
+          sx: { 
+            width: 320, bgcolor: 'rgba(10,10,24,0.98)', backdropFilter: 'blur(20px)',
+            borderLeft: '1px solid rgba(255,112,67,0.1)', p: 3
+          } 
+        }}
       >
-        <Typography variant="h5" sx={{ mb: 4, fontWeight: 'bold', color: '#fff' }}>Discussion</Typography>
-        <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={createNewChat} sx={{ mb: 4, borderRadius: 10, py: 1.5, textTransform: 'none' }}>Nouveau Chat</Button>
-        <List sx={{ '& .Mui-selected': { bgcolor: 'rgba(99,102,241,0.2) !important' } }}>
-          {sessions.map((s) => (
-            <ListItem button key={s.sessionId} onClick={() => fetchHistory(s.sessionId)} selected={currentSessionId === s.sessionId} sx={{ borderRadius: 3, mb: 1, p: 1.5 }}>
-              <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}><ChatIcon fontSize="small" /></ListItemIcon>
-              <ListItemText primary={<Typography variant="body2" sx={{ color: '#e0e0e0' }} noWrap>{s.sessionTitle}</Typography>} />
-              <IconButton size="small" onClick={(e) => deleteSession(s.sessionId, e)} sx={{ color: 'rgba(255,255,255,0.3)' }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+        <Typography variant="h5" sx={{ mb: 4, fontWeight: 900, color: 'white' }}>Historique</Typography>
+        <List>
+          {sessions.map((s, idx) => (
+            <ListItem 
+              key={idx} 
+              button 
+              onClick={() => { fetchHistory(s.sessionId); setSidebarOpen(false); }}
+              sx={{ borderRadius: 3, mb: 1, '&:hover': { bgcolor: 'rgba(255,112,67,0.1)' } }}
+            >
+              <ListItemIcon sx={{ color: '#FB923C', minWidth: 40 }}><ChatIcon fontSize="small" /></ListItemIcon>
+              <ListItemText 
+                primary={<Typography variant="body2" sx={{ fontWeight: 700, color: 'white' }} noWrap>{s.sessionTitle}</Typography>} 
+                secondary={<Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)' }}>{new Date(s.timestamp || Date.now()).toLocaleDateString()}</Typography>}
+              />
             </ListItem>
           ))}
         </List>
       </Drawer>
 
-      {/* Messages Scroll Area */}
-      <Box ref={scrollRef} sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
-        <Container maxWidth="md">
-          {chatHistory.length <= 1 && (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <AIIcon sx={{ fontSize: 60, color: 'rgba(99,102,241,0.3)', mb: 2 }} />
-              <Typography variant="h4" sx={{ fontWeight: '900', mb: 1, color: '#fff' }}>IA Stratégique</Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 5 }}>Optimisez votre établissement grâce à l'intelligence prédictive.</Typography>
-              <Grid container spacing={2}>
-                {[{ icon: <GrowthIcon />, label: "Analyse Croissance", msg: "Analyse mes ventes du mois" }, { icon: <StatsIcon />, label: "Audit Plats", msg: "Quels sont mes meilleurs plats ?" }, { icon: <DbIcon />, label: "État Stocks", msg: "Audit complet de mes stocks" }, { icon: <StrategyIcon />, label: "Stratégie", msg: "Donne-moi 3 recommandations" }].map((c, i) => (
-                  <Grid item xs={6} sm={3} key={i}>
-                    <Paper 
-                      elevation={0}
-                      sx={{ p: 2.5, borderRadius: 4, cursor: 'pointer', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', '&:hover': { bgcolor: 'rgba(99,102,241,0.1)', borderColor: 'primary.main' }, transition: 'all 0.3s' }} 
-                      onClick={() => handleSend(c.msg)}
-                    >
-                      <Box sx={{ color: 'primary.main', mb: 1.5 }}>{c.icon}</Box>
-                      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>{c.label}</Typography>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          )}
-
-          <Stack spacing={4}>
-            {chatHistory.map((item, idx) => (
-              <Box 
-                key={idx} 
-                className="message-row"
-                sx={{ 
-                  display: 'flex', gap: 2.5, 
-                  flexDirection: item.role === 'Assistant' ? 'row' : 'row-reverse',
-                  alignItems: 'flex-start'
-                }}
-              >
-                <Avatar sx={{ bgcolor: item.role === 'Assistant' ? 'primary.main' : 'rgba(255,255,255,0.1)', width: 36, height: 36, boxShadow: 2 }}>
-                  {item.role === 'Assistant' ? <SparkleIcon sx={{ fontSize: 18 }} /> : 'A'}
-                </Avatar>
-                <Box 
-                  sx={{ 
-                    maxWidth: '85%', 
-                    p: 2.5,
-                    borderRadius: item.role === 'Assistant' ? '0px 20px 20px 20px' : '20px 0px 20px 20px',
-                    bgcolor: item.role === 'Assistant' ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.1)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    boxShadow: item.role === 'Assistant' ? 'none' : '0 4px 15px rgba(0,0,0,0.2)',
-                    color: '#e2e8f0',
-                    lineHeight: 1.7,
-                    '& h1, h2, h3': { color: 'primary.main', mb: 2, mt: 1 },
-                    '& strong': { color: '#818cf8', fontWeight: '800' }
-                  }}
-                >
-                  <div className="markdown-content">
-                    {parseContent(item.content)}
-                  </div>
-                  {/* Badge métriques DeerFlow */}
-                  {item.pipeline && item.pipeline.tasksPlanned && (
-                    <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Chip size="small" label={`🧠 ${item.pipeline.tasksPlanned} tâches`}
-                        sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)' }} />
-                      <Chip size="small" label={`⚡ ${item.pipeline.totalRows || 0} lignes`}
-                        sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }} />
-                      {item.pipeline.elapsedSeconds && (
-                        <Chip size="small" label={`⏱ ${item.pipeline.elapsedSeconds}s`}
-                          sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }} />
-                      )}
-                    </Box>
-                  )}
-                </Box>
-              </Box>
-            ))}
-            
-            {loading && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2,
-                bgcolor: 'rgba(99,102,241,0.04)', borderRadius: 3,
-                border: '1px solid rgba(99,102,241,0.15)' }}>
-                {/* Pipeline Header */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32, animation: 'pulse 2s infinite' }}>
-                    <SparkleIcon sx={{ fontSize: 16 }} />
-                  </Avatar>
-                  <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
-                    DeerFlow Pipeline · En cours
-                  </Typography>
-                </Box>
-
-                {/* Steps */}
-                {[
-                  { step: 1, icon: '🧠', label: 'Planner', desc: 'Décomposition de la demande en tâches SQL...' },
-                  { step: 2, icon: '⚡', label: 'Executor', desc: 'Exécution des requêtes en parallèle...' },
-                  { step: 3, icon: '📊', label: 'Reporter', desc: 'Génération du rapport stratégique...' },
-                ].map(({ step, icon, label, desc }) => {
-                  const isDone = pipelineStep > step;
-                  const isActive = pipelineStep === step;
-                  const isPending = pipelineStep < step;
-                  return (
-                    <Box key={step} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, opacity: isPending ? 0.3 : 1, transition: 'opacity 0.4s' }}>
-                      <Box sx={{
-                        width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem',
-                        bgcolor: isDone ? 'rgba(34,197,94,0.15)' : isActive ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${isDone ? '#22c55e' : isActive ? '#818cf8' : 'rgba(255,255,255,0.1)'}`,
-                        animation: isActive ? 'pulse 1s infinite' : 'none',
-                        flexShrink: 0
-                      }}>
-                        {isDone ? '✓' : icon}
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: isDone ? '#22c55e' : isActive ? '#818cf8' : 'rgba(255,255,255,0.4)', display: 'block', lineHeight: 1 }}>
-                          {label}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>
-                          {isDone ? 'Terminé' : isActive ? desc : 'En attente'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-            <div style={{ height: 100 }} />
-          </Stack>
-        </Container>
-      </Box>
-
-      {/* Floating Input Area */}
-      <Box sx={{ 
-        position: 'absolute', bottom: 30, left: 0, right: 0, 
-        zIndex: 10, bgcolor: 'transparent', px: 2 
-      }}>
-        <Container maxWidth="md">
-          <Paper 
-            elevation={24} 
-            sx={{ 
-              p: 1.5, pl: 3, borderRadius: 10, 
-              display: 'flex', alignItems: 'center', 
-              bgcolor: 'rgba(30,30,50,0.8)', 
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-            }}
-          >
-            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: 'primary.main' }}>
-              <ToolsIcon fontSize="small" />
-            </IconButton>
-            <TextField 
-              fullWidth 
-              placeholder="Question stratégique (ex: Prédis mes ventes ce weekend)..." 
-              variant="standard" 
-              value={message} 
-              onChange={(e) => setMessage(e.target.value)} 
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()} 
-              InputProps={{ 
-                disableUnderline: true,
-                sx: { color: '#fff', fontSize: '0.95rem' }
-              }} 
-            />
-            <IconButton 
-              color="primary" 
-              onClick={() => handleSend()} 
-              disabled={loading || !message.trim()}
-              sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' }, ml: 1, p: 1.2 }}
-            >
-              <SendIcon fontSize="small" />
-            </IconButton>
-          </Paper>
-        </Container>
-      </Box>
-
-      {/* Notif */}
       <Snackbar open={notif.open} autoHideDuration={4000} onClose={() => setNotif({ ...notif, open: false })}>
-        <Alert severity={notif.severity} variant="filled" sx={{ width: '100%', borderRadius: 3 }}>{notif.msg}</Alert>
+        <Alert severity={notif.severity} variant="filled" sx={{ width: '100%', borderRadius: 4, fontWeight: 700 }}>{notif.msg}</Alert>
       </Snackbar>
-
-      {/* Extensions Popover */}
-      <Popover 
-        open={Boolean(anchorEl)} 
-        anchorEl={anchorEl} 
-        onClose={() => setAnchorEl(null)} 
-        anchorOrigin={{ vertical: 'top', horizontal: 'left' }} 
-        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }} 
-        PaperProps={{ sx: { borderRadius: 4, p: 2.5, width: 300, bgcolor: 'rgba(30,30,50,0.95)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', mt: -2 } }}
-      >
-        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: '900', color: 'primary.main' }}>EXTENSIONS IQ</Typography>
-        <List dense sx={{ py: 0 }}>
-          {[{ id: 'sql', icon: <DbIcon />, label: "Analyse Base de Données Real-time" }, { id: 'pdf', icon: <ReportIcon />, label: "Génération PDF Strategique" }, { id: 'actions', icon: <ActionIcon />, label: "Automatisations & Actions" }].map(t => (
-            <ListItem key={t.id} secondaryAction={<Switch checked={activeTools[t.id] || true} color="primary" size="small" />} sx={{ px: 0, py: 1.5 }}>
-              <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>{t.icon}</ListItemIcon>
-              <ListItemText 
-                primary={<Typography variant="body2" sx={{ fontWeight: 'bold' }}>{t.label}</Typography>}
-                secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>Activé par défaut</Typography>}
-              />
-            </ListItem>
-          ))}
-        </List>
-      </Popover>
     </Box>
+    </ThemeProvider>
   );
 };
 

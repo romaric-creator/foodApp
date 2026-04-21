@@ -1,278 +1,174 @@
 /**
- * 🤖 GOURMI IQ — Admin AI Service
- * 
- * Architecture DeerFlow-inspirée :
- *   [PLANNER]  → Décompose la demande en tâches SQL ciblées
- *   [EXECUTOR] → Exécute toutes les requêtes en parallèle
- *   [REPORTER] → Synthétise en rapport stratégique premium
- * 
- * Fallback : Si le planner échoue → pipeline classique 1-passe
+ * 🤖 GOURMI IQ — Admin AI Service (VERSION AGENT ELITE V3 - ANALYTICS EXPERT)
  */
 
-console.log('--- Loading adminAIService.js (DeerFlow Pipeline) ---');
+const axios = require('axios');
+const { executeReadOnlyQuery, getDatabaseSchema } = require('../utils/dbTools.js');
+const { searchImages } = require('./imageSearchService.js');
+const { generateMenuDescription } = require('./toolsService.js');
+const { formatTableMarkdown, formatChartData } = require('../utils/aiFormatters.js');
 
-import axios from 'axios';
-import { executeReadOnlyQuery, getDatabaseSchema } from '../utils/dbTools.js';
-import { planTasks, executeTasks, generateReport } from './plannerService.js';
+const COHERE_API_KEY = process.env.COHERE_API_KEY;
+const COHERE_BASE_URL = 'https://api.cohere.com/v1';
 
-// ─── Détecteur d'intention : analytique ou conversationnel ? ─────────────────
-function detectIntent(message) {
-  const msg = message.toLowerCase().trim();
-
-  // Mots-clés conversationnels → réponse directe sans pipeline SQL
-  const conversationalPatterns = [
-    /^(bonjour|bonsoir|salut|hello|hi|hey|coucou)/,
-    /^(merci|thanks|parfait|super|ok|ça marche|cool|génial|très bien)/,
-    /^(au revoir|bye|à bientôt|bonne journée|bonne nuit)/,
-    /^(comment (tu t'appelles|ça va|vas-tu))/,
-    /^(oui|non|peut-être|d'accord|exactement)/,
-    /^(qui es-tu|c'est quoi|qu'est-ce que|qu'est ce que|explique)/,
-    /^(aide|help|aide-moi avec)/,
-    /\?$/, // Questions générales courtes
-  ];
-
-  // Si message court (< 15 chars) et pas de mot analytique → conversationnel
-  const analyticalKeywords = [
-    'analyse', 'analyser', 'rapport', 'vente', 'ventes', 'chiffre', 'revenu',
-    'stock', 'stocks', 'commande', 'commandes', 'client', 'clients', 'menu',
-    'menus', 'plat', 'plats', 'catégorie', 'performance', 'audit', 'stats',
-    'statistique', 'bénéfice', 'marge', 'profit', 'tendance', 'prédiction',
-    'optimis', 'stratégi', 'semaine', 'mois', 'jour', 'période', 'comparais',
-    'top', 'meilleur', 'pire', 'plus vendu', 'moins vendu', 'alerte', 'rupture',
-    'panier', 'total', 'chiffre d\'affaires', 'ca '
-  ];
-
-  const hasAnalyticalKeyword = analyticalKeywords.some(kw => msg.includes(kw));
-
-  // Court + pattern conversationnel → CHAT
-  if (msg.length < 40 && !hasAnalyticalKeyword) {
-    for (const pattern of conversationalPatterns) {
-      if (pattern.test(msg)) return 'conversational';
-    }
-  }
-
-  // Très court sans mot analytique = conversationnel
-  if (msg.length < 20 && !hasAnalyticalKeyword) return 'conversational';
-
-  // Sinon → analytique → pipeline complet
-  return 'analytical';
-}
-
-// ─── Réponse conversationnelle rapide (sans SQL, sans pipeline) ───────────────
-async function handleConversational(message, history) {
-  const apiKey = process.env.COHERE_API_KEY;
-  const systemPrompt = `Tu es GOURMI IQ, l'assistant stratégique premium d'un restaurant. 
-Tu es expert en restauration, gestion, et data analytics.
-Pour les questions conversationnelles, réponds de façon concise, chaleureuse et professionnelle.
-Si la question porte sur tes capacités, explique que tu peux analyser les ventes, stocks, commandes, générer des rapports PDF, etc.
-Langue : Français. Ton : Expert, Premium. Longueur max : 3 phrases.`;
-
-  const cohereHistory = history.map(h => ({
-    role: h.role === 'User' ? 'USER' : 'CHATBOT',
-    message: h.content
-  }));
-
-  const response = await axios.post(
-    'https://api.cohere.com/v1/chat',
-    { model: 'command-r-08-2024', message, preamble: systemPrompt, chat_history: cohereHistory, temperature: 0.6 },
-    { headers: { 'Authorization': `Bearer ${process.env.COHERE_API_KEY}`, 'Content-Type': 'application/json' } }
-  );
-  return response.data.text;
-}
-
-
-async function callCohere(message, systemPrompt, chatHistory = []) {
-  const apiKey = process.env.COHERE_API_KEY;
-  if (!apiKey) {
-    console.error('❌ COHERE_API_KEY manquante !');
-    throw new Error('COHERE_API_KEY manquante');
-  }
-
-  const response = await axios.post(
-    'https://api.cohere.com/v1/chat',
-    {
-      model: 'command-r-08-2024',
-      message,
-      preamble: systemPrompt,
-      chat_history: chatHistory,
-      temperature: 0.3,
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-  return response.data;
-}
-
-// ─── Pipeline principal DeerFlow ──────────────────────────────────────────────
-export async function processAdminChat(message, history = []) {
-  const startTime = Date.now();
-  console.log('\n🚀 ═══════════════════════════════════════');
-  console.log('   GOURMI IQ — Smart Router');
-  console.log(`   Message: "${message.substring(0, 60)}"`);
-
-  // ──────────────────────────────────────────────────────────────
-  // ROUTEUR D'INTENTION — conversationnel vs analytique
-  // ──────────────────────────────────────────────────────────────
-  const intent = detectIntent(message);
-  console.log(`   Intent: ${intent.toUpperCase()}`);
-  console.log('═══════════════════════════════════════════\n');
-
-  if (intent === 'conversational') {
-    // ── Réponse directe rapide, sans SQL ──
-    try {
-      const text = await handleConversational(message, history);
-      return {
-        message: text,
-        pipeline: { mode: 'conversational' },
-        history: [...history, { role: 'User', content: message }, { role: 'Assistant', content: text }]
-      };
-    } catch (err) {
-      console.error('Conversational error:', err.message);
-      return {
-        message: 'Bonjour ! Je suis GOURMI IQ, votre assistant analytique. Posez-moi une question sur vos ventes, stocks ou commandes.',
-        pipeline: { mode: 'conversational_fallback' },
-        history
-      };
-    }
-  }
-
-
-
+async function callCohere(message, systemPrompt, chatHistory = [], temperature = 0.2) {
   try {
-    // ──────────────────────────────────────────────────────────────
-    // PRÉ-REQUIS : Schéma de la base de données
-    // ──────────────────────────────────────────────────────────────
-    console.log('📦 [0/3] Fetching database schema...');
-    const schema = await getDatabaseSchema();
-    if (!schema) throw new Error('Impossible de récupérer le schéma de la base de données');
-    console.log('✅ Schema loaded\n');
+    const response = await axios.post(
+      `${COHERE_BASE_URL}/chat`,
+      { model: 'command-r-08-2024', message, preamble: systemPrompt, chat_history: chatHistory, temperature },
+      { headers: { Authorization: `Bearer ${COHERE_API_KEY}`, 'Content-Type': 'application/json' } }
+    );
+    return response.data;
+  } catch (err) {
+    console.error('Cohere API Error:', err.message);
+    throw err;
+  }
+}
 
-    // ──────────────────────────────────────────────────────────────
-    // ÉTAPE 1 : PLANNER — Décompose la demande en tâches SQL
-    // ──────────────────────────────────────────────────────────────
-    console.log('🧠 [1/3] Planning tasks...');
-    const plan = await planTasks(message, schema);
-    
-    console.log(`\n📋 Plan "${plan.intent}" :`);
-    plan.tasks.forEach((t, i) => {
-      console.log(`   ${i + 1}. [${t.id}] ${t.name}`);
-    });
-    console.log('');
+async function extractDishInfo(message) {
+  const prompt = `Analyses la demande de création de plat. Réponds en JSON : { "dishName": "...", "searchQuery": "...", "category": "..." }`;
+  const result = await callCohere(message, prompt);
+  try {
+    return JSON.parse(result.text.replace(/```json\n?|\n?```/g, '').trim());
+  } catch (e) {
+    return { dishName: "Nouveau plat", searchQuery: message, category: "Divers" };
+  }
+}
 
-    // ──────────────────────────────────────────────────────────────
-    // ÉTAPE 2 : EXECUTOR — Exécution SQL parallèle
-    // ──────────────────────────────────────────────────────────────
-    console.log('⚡ [2/3] Executing SQL tasks in parallel...');
-    const taskResults = await executeTasks(plan.tasks);
+const queryCache = new Map();
 
-    const successCount = taskResults.filter(r => r.success).length;
-    const totalRows = taskResults.reduce((acc, r) => acc + (r.rowCount || 0), 0);
-    console.log(`✅ ${successCount}/${plan.tasks.length} tasks succeeded — ${totalRows} total rows\n`);
-
-    // ──────────────────────────────────────────────────────────────
-    // ÉTAPE 3 : REPORTER — Rapport stratégique premium
-    // ──────────────────────────────────────────────────────────────
-    console.log('📊 [3/3] Generating premium report...');
-    const reportText = await generateReport(message, plan.intent, taskResults, history);
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`\n✅ Pipeline complete in ${elapsed}s`);
-    console.log('═══════════════════════════════════════════\n');
-
+async function processAdminChat(message, history = []) {
+  let finalResponse = { message: '', pipeline: {}, history: [...history] };
+  
+  const cacheKey = message.trim().toLowerCase();
+  // 🔥 FAST TRACK : Vérification du Cache en Mémoire (0 seconde de temps de réponse)
+  if (queryCache.has(cacheKey)) {
+    console.log('[AI Cache Hit] Réponse distribuée instantanément !');
+    const cached = queryCache.get(cacheKey);
     return {
-      message: reportText,
-      pipeline: {
-        intent: plan.intent,
-        tasksPlanned: plan.tasks.length,
-        tasksSucceeded: successCount,
-        totalRows,
-        elapsedSeconds: parseFloat(elapsed)
-      },
-      history: [
-        ...history,
-        { role: 'User', content: message },
-        { role: 'Assistant', content: reportText }
-      ]
+      message: cached.message,
+      pipeline: cached.pipeline,
+      history: [...history, { role: 'User', content: message }, { role: 'Assistant', content: cached.message }]
     };
-
-  } catch (error) {
-    console.error('\n❌ DeerFlow Pipeline Error:', error.message);
-    console.log('⚠️  Falling back to classic 1-pass pipeline...\n');
-    return await fallbackClassicPipeline(message, history);
   }
-}
 
-// ─── Fallback : Pipeline classique 1-passe (ancienne version) ─────────────────
-async function fallbackClassicPipeline(message, history = []) {
+  const schema = await getDatabaseSchema();
+  const schemaInfo = JSON.stringify(schema || {});
+
   try {
-    const schema = await getDatabaseSchema();
-    const schemaInfo = JSON.stringify(schema || {});
+    // --- ÉTAPE 1 : PLANIFICATION & SQL (FAST PASS) ---
+    const plannerPrompt = `Tu es GOURMI ANALYTICS ENGINE.
+    Décide des outils à utiliser : ["sql", "images", "chat"].
+    Si demande chiffrée, de rapport ou d'évolution -> outil "sql" OBLIGATOIRE.
+    
+    SCHÉMA DB : ${schemaInfo}
+    EXEMPLES SQL JOINTURES :
+    - Vente/Catégorie : SELECT c.name, SUM(oi.price * oi.quantity) as total FROM categories c JOIN menus m ON c.idCat = m.idCat JOIN order_items oi ON m.idMenu = oi.idMenu GROUP BY c.name
+    - Évolution Mensuelle : SELECT DATE_FORMAT(created_at, '%Y-%m') as month, SUM(total) as revenue FROM orders GROUP BY month ORDER BY month
+    
+    Réponds DIRECTEMENT en JSON (sans markdown de code) avec cette structure : 
+    { 
+      "thinking": "...", 
+      "tools": ["sql"], 
+      "sqls": ["SELECT ...", "SELECT ..."] 
+    }`;
 
-    const systemPrompt = `Tu es GOURMI AGENT PREMIUM, l'intelligence stratégique de ce restaurant.
+    // On combine Planification + SQL en 1 seul appel pour diviser le temps de réponse par 2
+    const plannerResult = await callCohere(message, plannerPrompt, history.slice(-2).map(h => ({ role: h.role === 'User' ? 'USER' : 'CHATBOT', message: h.content })), 0.1);
+    
+    let plan = { tools: ['chat'], sqls: [] };
+    try { 
+      let cleanJson = plannerResult.text.replace(/```json\n?|\n?```/g, '').trim();
+      // Securité si Cohere a ajouté du texte avant ou après le JSON
+      if(cleanJson.indexOf('{') > -1) {
+        cleanJson = cleanJson.substring(cleanJson.indexOf('{'), cleanJson.lastIndexOf('}') + 1);
+      }
+      plan = JSON.parse(cleanJson); 
+      if(!plan.tools) plan.tools = ['chat'];
+    } catch (e) {
+      // Fallback très rapide basé sur des mots-clés si le JSON échoue
+      if(message.toLowerCase().match(/(vente|rapport|chiffre|ca|stat|évolution)/)) {
+        plan.tools = ['sql'];
+        plan.sqls = ["SELECT DATE_FORMAT(created_at, '%Y-%m') as month, SUM(total) as revenue FROM orders GROUP BY month ORDER BY month", "SELECT c.name, SUM(oi.price * oi.quantity) as total FROM categories c JOIN menus m ON c.idCat = m.idCat JOIN order_items oi ON m.idMenu = oi.idMenu GROUP BY c.name"];
+      }
+    }
 
-SCHÉMA DB :
-- menus (idMenu, name, description, price, stock_quantity, min_stock_alert, idCat)
-- categories (idCat, name)
-- orders (idOrder, total, statut, timestamp, created_at)
-- order_items (idOrder, idMenu, quantity, price)
+    let toolResults = { sql: null, db_evidence: [] };
 
-RÈGLES :
-- Génère des requêtes SQL via <SQL>...</SQL> pour toute analyse
-- Utilise des tableaux Markdown pour présenter les données
-- Ajoute <CHART type="bar|line|pie" data='...' /> après chaque tableau
-- Ne jamais inventer de données — si vide, dis-le clairement
+    // --- ÉTAPE 2 : EXÉCUTION & AUTO-GUÉRISON (SELF-HEALING) ---
+    if (plan.tools.includes('sql') && plan.sqls && plan.sqls.length > 0) {
+      // Nettoyage si le LLM a mis plusieurs requêtes séparées par des points-virgules dans la même string
+      let rawQueries = [];
+      plan.sqls.forEach(sql => {
+        sql.split(';').map(q => q.trim()).filter(q => q.length > 5).forEach(q => rawQueries.push(q));
+      });
 
-BASE DE DONNÉES :
-${schemaInfo}`;
-
-    const cohereHistory = history.map(h => ({
-      role: h.role === 'User' ? 'USER' : 'CHATBOT',
-      message: h.content
-    }));
-
-    let result = await callCohere(message, systemPrompt, cohereHistory);
-    let text = result.text;
-
-    // Exécuter les SQL trouvés dans la réponse
-    const sqlMatches = [...text.matchAll(/<SQL>(.*?)<\/SQL>/gs)];
-    if (sqlMatches.length > 0) {
-      let combinedResults = '';
-      for (let i = 0; i < sqlMatches.length; i++) {
+      for (const queryStr of rawQueries) {
+        let currentQuery = queryStr;
         try {
-          const data = await executeReadOnlyQuery(sqlMatches[i][1].trim());
-          combinedResults += `\nRésultat ${i + 1}: ${JSON.stringify(data)}\n`;
+          // Première tentative
+          const rows = await executeReadOnlyQuery(currentQuery);
+          if (rows && rows.length > 0) {
+            toolResults.db_evidence.push({ query: currentQuery, data: rows.slice(0, 50) });
+          }
         } catch (e) {
-          combinedResults += `\nRésultat ${i + 1}: Erreur - ${e.message}\n`;
+          console.warn('[SQL Failure]', e.message, '-> Déclenchement Auto-Guérison...');
+          try {
+            // 🚑 BOUCLE D'AUTO-CORRECTION (SELF-HEALING)
+            const fixPrompt = `La requête SQL MySQL a échoué.\nRequête : ${currentQuery}\nErreur : ${e.message}\nCorriges la requête pour le schéma : ${schemaInfo}\nRENVOIE UNIQUEMENT LA REQUÊTE SQL CORRIGÉE sans markdown.`;
+            const fixRes = await callCohere(message, fixPrompt, [], 0.1);
+            let fixedQuery = fixRes.text.replace(/```sql\n?|\n?```/g, '').trim().replace(/;+$/, '');
+            
+            console.warn('[SQL Auto-Healing] Nouvelle tentative avec:', fixedQuery);
+            const rows2 = await executeReadOnlyQuery(fixedQuery);
+            if (rows2 && rows2.length > 0) {
+              toolResults.db_evidence.push({ query: fixedQuery, data: rows2.slice(0, 50) });
+            }
+          } catch (e2) {
+            console.error('[SQL Fatal Failure] Même après auto-guérison:', e2.message);
+          }
         }
       }
-
-      cohereHistory.push({ role: 'USER', message });
-      cohereHistory.push({ role: 'CHATBOT', message: text });
-
-      const followUpResult = await callCohere(
-        `Voici les données réelles: ${combinedResults}. Produis maintenant un rapport avec tableaux Markdown et tags <CHART />.`,
-        systemPrompt,
-        cohereHistory
-      );
-      text = followUpResult.text;
     }
 
-    return {
-      message: text,
-      pipeline: { mode: 'fallback_classic' },
-      history: [...history, { role: 'User', content: message }, { role: 'Assistant', content: text }]
-    };
+    //Images / Menu si besoin
+    if (plan.tools.includes('images')) {
+      const info = await extractDishInfo(message);
+      toolResults.images = await searchImages(info.searchQuery, info.dishName);
+    }
+
+    // --- ÉTAPE 3 : SYNTHÈSE MATHÉMATIQUE ---
+    const synthesisPrompt = `Tu es l'Analyste Stratégique de GOURMI.
+    DONNÉES CLIENT RÉELLES (MYSQL) : ${JSON.stringify(toolResults.db_evidence)}
+    IMAGES : ${JSON.stringify(toolResults.images || [])}
+    
+    DEMANDE : "${message}"
+    
+    CONSIGNES DE SYNTHÈSE (STRICTES) :
+    1. CHIFFRES : Utilise les montants EXACTS des données ci-dessus (en FCFA). Si tu ne vois pas de données, dis "Aucune donnée trouvée".
+    2. KPI : Utilise <KPI title="Titre" value="Valeur FCFA" trend="+X%" />.
+    3. GRAPHIQUES : Utilise <CHART type="bar|line|pie" data='{"labels": [...], "datasets": [{"label": "...", "data": [...]}]}' />. IMPORTANT: N'utilise JAMAIS, sous AUCUN prétexte, d'apostrophe (') ou d'apostrophe échappée (\\\') dans les de noms de plats ou textes du JSON. Tu DOIS les remplacer par des espaces (ex: écris "Gateau a l Ananas", JAMAIS "Gâteau à l\\'Ananas").
+    4. SMART ACTIONS : <SMART_ACTIONS actions='[{"label": "...", "cmd": "..."}]' />.
+    
+    TON : Élite, stratégique, factuel. NE PAS HALLUCINER.`;
+
+    const finalPass = await callCohere(message, synthesisPrompt, history.slice(-5).map(h => ({ role: h.role === 'User' ? 'USER' : 'CHATBOT', message: h.content })), 0.3);
+    
+    finalResponse.message = finalPass.text;
+    finalResponse.history = [...history, { role: 'User', content: message }, { role: 'Assistant', content: finalPass.text }];
+    
+    // 💾 Sauvegarde dans le cache (limité à 50 requêtes pour la RAM)
+    queryCache.set(cacheKey, { message: finalResponse.message, pipeline: finalResponse.pipeline });
+    if (queryCache.size > 50) {
+      queryCache.delete(queryCache.keys().next().value);
+    }
+
+    return finalResponse;
 
   } catch (err) {
-    console.error('❌ Fallback also failed:', err.message);
-    return {
-      message: '⚠️ Service temporairement indisponible. Vérifiez votre connexion et la clé API Cohere.',
-      pipeline: { mode: 'error' },
-      history
-    };
+    console.error('Agent V3 Failure:', err);
+    return { message: "⚠️ Echec de l'analyse. Vérifiez la connexion DB.", history };
   }
 }
+
+module.exports = { processAdminChat };

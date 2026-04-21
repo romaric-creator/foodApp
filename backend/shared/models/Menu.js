@@ -23,6 +23,14 @@ const Menu = sequelize.define('Menu', {
     },
     idCat: {
         type: DataTypes.INTEGER
+    },
+    stock_quantity: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    is_available: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
     }
 }, {
     tableName: 'menus',

@@ -4,22 +4,22 @@ import { getDashboardTheme, updateDashboardTheme } from '../services/themeServic
 
 export const ThemeSettingsContext = createContext({ customTheme: null, updateTheme: () => {} });
 
-// Base colors for a dark theme
+// Nordic Slate Palette (Balanced & Elegant - 5 Colors Max)
 const darkTheme = {
   mode: 'dark',
-  primary: '#6366f1',
-  secondary: '#8b5cf6',
-  background: '#121212',
-  surface: '#1e1e1e',
-  textPrimary: '#ffffff',
-  textSecondary: '#b3b3b3'
+  primary: '#FB923C',    // Orange Corail
+  secondary: '#0EA5E9',  // Bleu Azur
+  background: '#1E293B', // Fond Ardoise Profond
+  surface: '#334155',    // Surface Ardoise Douce
+  textPrimary: '#F8FAFC', // Blanc Cassé
+  textSecondary: '#94A3B8' // Gris Ardoise (Optionnel, lié à la surface)
 };
 
 // Base colors for a light theme
 const lightTheme = {
   mode: 'light',
-  primary: '#4f46e5',
-  secondary: '#6d28d9',
+  primary: '#FF7043',
+  secondary: '#5C6BC0',
   background: '#f4f6f8',
   surface: '#ffffff',
   textPrimary: '#1a202c',
@@ -138,7 +138,10 @@ const CustomThemeProvider = ({ children }) => {
           MuiPaper: {
             styleOverrides: {
               root: {
-                backgroundImage: 'none'
+                backgroundImage: 'none',
+                backgroundColor: 'rgba(18, 18, 26, 0.4)', // Glass effect default
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
               }
             }
           },
@@ -157,9 +160,9 @@ const CustomThemeProvider = ({ children }) => {
                 padding: '12px 24px', // Padding généreux
               },
               containedPrimary: {
-                background: 'linear-gradient(45deg, #FF9800 30%, #FF7043 90%)', // Dégradé pour le bouton principal
+                background: 'linear-gradient(45deg, #FF7043 30%, #FF5722 90%)', // Dégradé cohérent avec la nouvelle marque
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #FB8C00 30%, #F4511E 90%)',
+                  background: 'linear-gradient(45deg, #F4511E 30%, #E64A19 90%)',
                 },
               },
               outlinedPrimary: { // Pour le bouton "Parcourir le menu"
@@ -224,8 +227,11 @@ const CustomThemeProvider = ({ children }) => {
           MuiChip: {
             styleOverrides: {
               root: {
-                borderRadius: 16,
-                fontWeight: 500
+                borderRadius: 8,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
               }
             }
           },

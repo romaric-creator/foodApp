@@ -1,6 +1,6 @@
-import express from 'express';
-import { getRecommendations } from '../services/recommendationService.js';
-import axios from 'axios';
+const express = require('express');
+const axios = require('axios');
+const { getRecommendations } = require('../services/recommendationService.js');
 
 const router = express.Router();
 
@@ -52,4 +52,4 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

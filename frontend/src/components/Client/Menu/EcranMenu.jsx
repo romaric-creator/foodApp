@@ -14,23 +14,22 @@ import {
   IconButton
 } from "@mui/material";
 import { Search, Refresh, KeyboardArrowUp, RestaurantMenu as RestaurantIcon } from "@mui/icons-material";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import MenuCard from "./MenuCard";
 import { useNavigate, useParams } from "react-router-dom";
 
 const AnimatedMenuItem = React.memo(({ menu, ajouterAuPanier, onShowIngredients }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: 20 }}
-    transition={{ duration: 0.3 }}
+    initial={{ opacity: 0, y: 30 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.4 }}
   >
     <MenuCard menu={menu} onAddToCart={ajouterAuPanier} onShowIngredients={onShowIngredients} />
   </motion.div>
 ));
 
 const EcranMenu = ({
-  theme: propTheme,
   recherche,
   setRecherche,
   categories,
@@ -45,21 +44,15 @@ const EcranMenu = ({
   const navigate = useNavigate();
   const { idtable } = useParams();
   
-  const orangeColor = theme.palette.orange?.main || "#FF9800";
+  const primaryColor = theme.palette.primary.main;
 
   useEffect(() => {
-    const handleScroll = () => {
-      const y = window.scrollY;
-      setShowScrollButton(y > 300);
-    };
-
+    const handleScroll = () => setShowScrollButton(window.scrollY > 300);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const handleShowIngredients = (menuId, description, imageUrl) => {
     const ingredientList = description ? description.split(",").map((item) => item.trim()) : [];
@@ -73,51 +66,56 @@ const EcranMenu = ({
   };
 
   return (
-    <Box sx={{ bgcolor: 'backgroundPanier.default', minHeight: '100vh' }}>
-      {/* Header Visuel */}
+    <Box sx={{ bgcolor: '#F8F9FA', minHeight: '100vh' }}>
+      {/* Header Immersif */}
       <Box sx={{ 
-        height: '220px', 
+        height: '240px', 
         width: '100%', 
         position: 'relative',
-        bgcolor: orangeColor,
-        background: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80')`,
+        background: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         px: 3,
-        pt: 2,
-        pb: 4
+        pb: 6
       }}>
-        <Typography variant="h3" sx={{ color: 'white', fontWeight: 900, mb: 0.5, letterSpacing: -1 }}>
-          GOURMI
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
-          {idtable ? `Table N° ${idtable}` : "Bienvenue à notre table"}
-        </Typography>
+        <motion.div
+           initial={{ opacity: 0, x: -20 }}
+           animate={{ opacity: 1, x: 0 }}
+           transition={{ duration: 0.8 }}
+        >
+          <Typography variant="h3" sx={{ color: 'white', fontWeight: 900, mb: 0, letterSpacing: -1.5 }}>
+            GOURMI
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, opacity: 0.9 }}>
+            {idtable ? `Table N° ${idtable}` : "Bienvenue chez nous"}
+          </Typography>
+        </motion.div>
       </Box>
 
-      {/* Barre de Recherche et Catégories */}
+      {/* Barre de Recherche Flottante */}
       <Box sx={{ 
-        mt: -4, 
+        mt: -3, 
         px: 2, 
-        position: 'relative', 
-        zIndex: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2
+        position: 'sticky', 
+        top: 20,
+        zIndex: 1100,
       }}>
-        <Paper elevation={4} sx={{ 
-          p: 0.5, 
-          borderRadius: 4, 
+        <Paper elevation={0} sx={{ 
+          p: 0.8, 
+          borderRadius: '20px', 
           display: 'flex', 
           alignItems: 'center',
-          bgcolor: 'background.paper'
+          bgcolor: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(0,0,0,0.05)',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.08)'
         }}>
           <TextField
             fullWidth
-            placeholder="Rechercher votre plat préféré..."
+            placeholder="Que souhaitez-vous manger ?"
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             variant="standard"
@@ -126,26 +124,32 @@ const EcranMenu = ({
               disableUnderline: true,
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: orangeColor }} />
+                  <Search sx={{ color: primaryColor }} />
                 </InputAdornment>
               )
             }}
           />
-          <IconButton 
-            onClick={() => { setRecherche(""); setCategorieSelectionnee(null); }}
-            sx={{ color: 'text.secondary', p: 1.5 }}
-          >
-            <Refresh />
-          </IconButton>
+          {recherche && (
+            <IconButton onClick={() => setRecherche("")} size="small" sx={{ mr: 1 }}>
+              <Refresh fontSize="small" />
+            </IconButton>
+          )}
         </Paper>
+      </Box>
 
+      {/* Catégories - Horizontales avec défilement fluide */}
+      <Box sx={{ mt: 3, mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ px: 3, mb: 1.5, fontWeight: 800, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+          Nos Catégories
+        </Typography>
         <Box
           sx={{
             width: '100%',
             overflowX: 'auto',
             display: 'flex',
             gap: 1.5,
-            py: 1,
+            px: 3,
+            pb: 2,
             '::-webkit-scrollbar': { display: 'none' },
             scrollbarWidth: 'none',
           }}
@@ -157,74 +161,84 @@ const EcranMenu = ({
               onClick={() => setCategorieSelectionnee(categorie.idCat)}
               sx={{
                 px: 1,
-                py: 2.5,
-                borderRadius: 3,
-                fontSize: '0.9rem',
-                fontWeight: 700,
-                bgcolor: categorieSelectionnee === categorie.idCat ? orangeColor : 'white',
+                py: 2.8,
+                borderRadius: '16px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                bgcolor: categorieSelectionnee === categorie.idCat ? primaryColor : 'white',
                 color: categorieSelectionnee === categorie.idCat ? 'white' : 'text.primary',
                 boxShadow: categorieSelectionnee === categorie.idCat 
-                  ? `0 4px 12px ${alpha(orangeColor, 0.4)}` 
-                  : '0 2px 8px rgba(0,0,0,0.05)',
+                  ? `0 6px 15px ${alpha(primaryColor, 0.4)}` 
+                  : '0 4px 10px rgba(0,0,0,0.04)',
+                border: '1px solid',
+                borderColor: categorieSelectionnee === categorie.idCat ? primaryColor : 'rgba(0,0,0,0.03)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  bgcolor: categorieSelectionnee === categorie.idCat ? orangeColor : 'grey.100',
-                },
-                transition: 'all 0.2s ease'
+                  bgcolor: categorieSelectionnee === categorie.idCat ? primaryColor : 'white',
+                  transform: 'translateY(-2px)'
+                }
               }}
             />
           ))}
         </Box>
       </Box>
 
-      {/* Liste des Plats */}
-      <Box sx={{ p: 2, pb: 10 }}>
+      {/* Liste des Plats - Animation au défilement */}
+      <Box sx={{ p: 2.5, pb: 12 }}>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 900, fontSize: '1.2rem' }}>
+          {recherche ? 'Résultats de recherche' : 'Séléction du Chef'}
+        </Typography>
+        
         {chargement ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}>
-            <CircularProgress sx={{ color: orangeColor }} />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <CircularProgress sx={{ color: primaryColor, mx: 'auto', my: 4 }} />
           </Box>
         ) : filteredMenus.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 8, px: 4 }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Aucun plat trouvé
-            </Typography>
-            <Button 
-              variant="text" 
-              onClick={() => { setRecherche(""); setCategorieSelectionnee(null); }}
-              sx={{ color: orangeColor }}
-            >
+          <Box sx={{ textAlign: 'center', py: 10 }}>
+            <RestaurantIcon sx={{ fontSize: 60, color: 'text.disabled', opacity: 0.2, mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">Aucun plat trouvé</Typography>
+            <Button onClick={() => { setRecherche(""); setCategorieSelectionnee(null); }} sx={{ color: primaryColor, mt: 1, fontWeight: 700 }}>
               Voir tout le menu
             </Button>
           </Box>
         ) : (
-          filteredMenus.map((menu) => (
-            <AnimatedMenuItem
-              key={menu.idMenu}
-              menu={menu}
-              ajouterAuPanier={ajouterAuPanier}
-              onShowIngredients={handleShowIngredients}
-            />
-          ))
+          <AnimatePresence>
+            {filteredMenus.map((menu) => (
+              <AnimatedMenuItem
+                key={menu.idMenu}
+                menu={menu}
+                ajouterAuPanier={ajouterAuPanier}
+                onShowIngredients={handleShowIngredients}
+              />
+            ))}
+          </AnimatePresence>
         )}
       </Box>
 
-      {/* Bouton scroll top */}
-      {showScrollButton && (
-        <Fab
-          onClick={scrollToTop}
-          size="medium"
-          sx={{
-            position: "fixed",
-            bottom: 80,
-            right: 20,
-            zIndex: 1000,
-            bgcolor: orangeColor,
-            color: 'white',
-            '&:hover': { bgcolor: theme.palette.orange?.dark || '#EF6C00' }
-          }}
-        >
-          <KeyboardArrowUp />
-        </Fab>
-      )}
+      {/* Fab pour remonter */}
+      <AnimatePresence>
+        {showScrollButton && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            style={{ position: "fixed", bottom: 100, right: 20, zIndex: 1200 }}
+          >
+            <Fab
+              onClick={scrollToTop}
+              size="medium"
+              sx={{
+                bgcolor: primaryColor,
+                color: 'white',
+                boxShadow: `0 8px 20px ${alpha(primaryColor, 0.4)}`,
+                '&:hover': { bgcolor: theme.palette.primary.dark }
+              }}
+            >
+              <KeyboardArrowUp />
+            </Fab>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Box>
   );
 };

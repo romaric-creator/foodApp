@@ -1,17 +1,103 @@
-console.log('--- Loading chat.js router ---');
-import express from 'express';
-import { processAdminChat } from '../services/adminAIService.js';
-import { callCohere, processChat } from '../services/chatService.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { 
+const express = require('express');
+const axios = require('axios');
+const { processAdminChat } = require('../services/adminAIService.js');
+const { processChat, processChatStream } = require('../services/chatService.js');
+const { authMiddleware } = require('../middleware/auth.js');
+const { 
   saveChatMessage, 
   getChatHistory, 
   getChatSessions, 
   clearUserChatHistory,
   executeActionQuery 
-} from '../utils/dbTools.js';
+} = require('../utils/dbTools.js');
 
 const router = express.Router();
+
+/**
+ * Route pour le chat client en STREAMING (Expérience Gemini)
+ * GET /api/ai/chat/client/stream?message=...&userId=...
+ */
+router.get('/client/stream', async (req, res) => {
+  const { message, userId, idtable } = req.query;
+
+  if (!message) return res.status(400).json({ error: 'Message vide' });
+
+  // Configuration SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  try {
+    let menuContext = [];
+    try {
+      const menuRes = await axios.get('http://localhost:5003/api/menus/all', { timeout: 3000 });
+      menuContext = menuRes.data;
+    } catch (e) {
+      console.warn('Context menu fetch failed');
+    }
+
+    await processChatStream(
+      userId || `client_${idtable || 'web'}`,
+      message,
+      { menu: menuContext },
+      global.redisClient,
+      (update) => {
+        if (update.done) {
+          res.write('event: end\ndata: [DONE]\n\n');
+          res.end();
+        } else if (update.error) {
+          res.write(`event: error\ndata: ${JSON.stringify({ error: update.error })}\n\n`);
+          res.end();
+        } else {
+          res.write(`data: ${JSON.stringify({ text: update.text })}\n\n`);
+        }
+      }
+    );
+  } catch (error) {
+    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+/**
+ * Route pour le chat client (public avec rate limit)
+ * POST /api/ai/chat/client
+ */
+router.post('/client', async (req, res) => {
+  const { message, userId, idtable } = req.body;
+  
+  if (!message) return res.status(400).json({ error: 'Message vide' });
+
+  try {
+    let menuContext = [];
+    try {
+      const menuRes = await axios.get('http://localhost:5003/api/menus/all', { timeout: 3000 });
+      menuContext = menuRes.data;
+    } catch (e) {
+      console.warn('Context menu fetch failed, continuing with empty context');
+    }
+
+    let result;
+    try {
+      result = await processChat(
+        userId || `client_${idtable || 'web'}`, 
+        message, 
+        { menu: menuContext }, 
+        global.redisClient
+      );
+    } catch (chatError) {
+      result = { 
+        message: 'Je rencontre une difficulté technique. Veuillez réessayer dans quelques instants.', 
+        error: chatError.message,
+        fallback: true
+      };
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /**
  * Route pour exécuter une action SQL approuvée
@@ -76,17 +162,16 @@ router.post('/admin/chat', authMiddleware, async (req, res) => {
   const sid = sessionId || 'default';
 
   try {
-    console.log(`Processing admin chat for Session: ${sid}`);
-    
-    // Sauvegarder le message
+    // Sauvegarder le message utilisateur
     await saveChatMessage(userId, 'User', message, sid, sessionTitle);
 
     // Charger l'historique de cette session si non fourni
+    // Note: getChatHistory est limité à 20 messages dans dbTools.js
     const conversationHistory = history || await getChatHistory(userId, sid);
 
     const result = await processAdminChat(message, conversationHistory);
 
-    // Sauvegarder la réponse
+    // Sauvegarder la réponse de l'assistant
     await saveChatMessage(userId, 'Assistant', result.message, sid, sessionTitle);
 
     res.json(result);
@@ -96,4 +181,4 @@ router.post('/admin/chat', authMiddleware, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

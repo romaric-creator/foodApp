@@ -1,332 +1,213 @@
-<<<<<<< HEAD
-/* App.css */
+/* App.css - Cleaned and Unified Theme */
 
 :root {
-    /* Define your color variables here */
-    --primary-color: #007bff;       /* Example: blue */
-    --secondary-color: #6c757d;    /* Example: gray */
-    --background-color: #f8f9fa;   /* Example: light gray */
-    --text-color: #343a40;          /* Example: dark gray */
-    --error-color: #dc3545;         /* Example: red */
+    /* Brand Colors - Food App Oriented */
+    --primary-color: #FF7043;       /* Warm Coral/Orange */
+    --primary-dark: #F4511E;
+    --secondary-color: #2D3748;    /* Dark Steel/Charcoal for AI - More premium and neutral */
+    --background-color: #F8F9FB;
+    --surface-color: #FFFFFF;
+    --text-primary: #1A202C;
+    --text-secondary: #64748B;
+    --error-color: #F44336;
+    --success-color: #4CAF50;
+    
+    /* Layout */
+    --header-height: 70px;
+    --sidebar-width: 260px;
+    --border-radius-lg: 16px;
+    --border-radius-md: 12px;
+    --border-radius-sm: 8px;
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --shadow-medium: 0 8px 30px rgba(0, 0, 0, 0.08);
   }
   
   /* General Styles */
   body {
-    font-family: sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     margin: 0;
     background-color: var(--background-color);
-    color: var(--text-color);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
   }
   
   .app-container {
       display: flex;
       flex-direction: column;
-      min-height: 100vh; /* Ensure full height */
+      min-height: 100vh;
   }
   
   .page-container {
-      padding: 20px;
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
   }
   
-  /* Header */
+  /* Header UI */
   .app-header {
-      background-color: var(--primary-color);
-      color: white;
-      padding: 10px 20px;
+      background-color: var(--surface-color);
+      color: var(--text-primary);
+      padding: 0 24px;
+      height: var(--header-height);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      box-shadow: var(--shadow-soft);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
   }
   
   .app-header h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--primary-color);
   }
   
-  /* Menu Styles */
+  /* Menu Layout */
   .menu-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+      padding: 16px 0;
   }
   
   .menu-item {
-      border: 1px solid #ddd;
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
+      background: var(--surface-color);
+      padding: 0;
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+  }
+  
+  .menu-item:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-medium);
   }
   
   .menu-image {
       width: 100%;
-      max-height: 150px;
+      height: 180px;
       object-fit: cover;
-      border-radius: 5px;
-      margin-bottom: 10px;
   }
   
-  /* Cart Styles */
-  .cart-container {
-      padding: 20px;
-      background-color: #fff;
-      border: 1px solid #ddd;
-  }
-  
-  /* Bottom Navigation */
+  /* Bottom Navigation - Mobile Optimized */
   .bottom-nav {
-      background-color: var(--background-color); /* Match body background */
-      padding: 10px;
-      text-align: center; /* Center the buttons */
-      display: flex;          /* Use flexbox */
-      justify-content: space-around; /* Distribute buttons evenly */
-      align-items: center;    /* Vertically align items */
+      background-color: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 12px 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      z-index: 1000;
   }
   
   .bottom-nav button {
       background: none;
       border: none;
-      padding: 5px 10px;
+      padding: 8px;
       cursor: pointer;
-      font-size: 1rem;
-      color: var(--text-color); /* Inherit text color */
-      display: flex;          /* Flex for icon and text */
-      flex-direction: column; /* Stack icon and text */
-      align-items: center;    /* Center items horizontally */
-      justify-content: center; /* Center items vertically */
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.2s ease;
   }
   
-  .bottom-nav button svg { /* Target the icons */
-      font-size: 1.5rem;    /* Make icons larger */
-      margin-bottom: 5px;   /* Space between icon and text */
+  .bottom-nav button.active {
+      color: var(--primary-color);
   }
   
-  /* Drawer Styles */
-  .drawer {
-    position: fixed;
-    top: 0;
-    right: -300px; /* Initially hidden */
-    width: 300px;
-    height: 100%;
-    background-color: #fff;
-    box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.2);
-    transition: right 0.3s ease-in-out;
-    overflow-y: auto;
-    padding: 20px;
+  .bottom-nav button svg {
+      font-size: 22px;
   }
   
-  .drawer.open {
-    right: 0; /* Slide in */
-  }
-  
-  /* Login Form */
+  /* Form Elements */
   .login-form {
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Space between form elements */
-    max-width: 300px;
-    margin: 0 auto; /* Center the form */
+    gap: 16px;
+    max-width: 360px;
+    margin: 40px auto;
+    padding: 32px;
+    background: var(--surface-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-medium);
   }
   
   .login-form label {
-    font-weight: bold;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
   }
   
   .login-form input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 12px 16px;
+    border: 2px solid #EDF2F7;
+    border-radius: var(--border-radius-sm);
+    font-size: 15px;
+    transition: border-color 0.2s ease;
+  }
+  
+  .login-form input:focus {
+    outline: none;
+    border-color: var(--primary-color);
   }
   
   .login-form button {
     background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 10px 15px;
-    border-radius: 4px;
+    padding: 14px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 700;
     cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  
+  .login-form button:hover {
+    background-color: var(--primary-dark);
   }
   
   .error-message {
     color: var(--error-color);
-    margin-bottom: 10px;
+    background: rgba(244, 67, 54, 0.1);
+    padding: 10px;
+    border-radius: var(--border-radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
   }
   
-  /* Content Container */
-  .content-container {
-      flex: 1; /* Take up remaining space */
-      padding: 20px;
-  }
-  
-  .cart-icon-button {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-  }
-=======
-/* App.css */
-
-:root {
-    /* Define your color variables here */
-    --primary-color: #007bff;       /* Example: blue */
-    --secondary-color: #6c757d;    /* Example: gray */
-    --background-color: #f8f9fa;   /* Example: light gray */
-    --text-color: #343a40;          /* Example: dark gray */
-    --error-color: #dc3545;         /* Example: red */
-  }
-  
-  /* General Styles */
-  body {
-    font-family: sans-serif;
-    margin: 0;
-    background-color: var(--background-color);
-    color: var(--text-color);
-  }
-  
-  .app-container {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh; /* Ensure full height */
-  }
-  
-  .page-container {
-      padding: 20px;
-  }
-  
-  /* Header */
-  .app-header {
-      background-color: var(--primary-color);
-      color: white;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-  }
-  
-  .app-header h1 {
-      margin: 0;
-      font-size: 24px;
-  }
-  
-  /* Menu Styles */
-  .menu-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-  }
-  
-  .menu-item {
-      border: 1px solid #ddd;
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
-  }
-  
-  .menu-image {
-      width: 100%;
-      max-height: 150px;
-      object-fit: cover;
-      border-radius: 5px;
-      margin-bottom: 10px;
-  }
-  
-  /* Cart Styles */
-  .cart-container {
-      padding: 20px;
-      background-color: #fff;
-      border: 1px solid #ddd;
-  }
-  
-  /* Bottom Navigation */
-  .bottom-nav {
-      background-color: var(--background-color); /* Match body background */
-      padding: 10px;
-      text-align: center; /* Center the buttons */
-      display: flex;          /* Use flexbox */
-      justify-content: space-around; /* Distribute buttons evenly */
-      align-items: center;    /* Vertically align items */
-  }
-  
-  .bottom-nav button {
-      background: none;
-      border: none;
-      padding: 5px 10px;
-      cursor: pointer;
-      font-size: 1rem;
-      color: var(--text-color); /* Inherit text color */
-      display: flex;          /* Flex for icon and text */
-      flex-direction: column; /* Stack icon and text */
-      align-items: center;    /* Center items horizontally */
-      justify-content: center; /* Center items vertically */
-  }
-  
-  .bottom-nav button svg { /* Target the icons */
-      font-size: 1.5rem;    /* Make icons larger */
-      margin-bottom: 5px;   /* Space between icon and text */
-  }
-  
-  /* Drawer Styles */
+  /* Drawer UI */
   .drawer {
     position: fixed;
     top: 0;
-    right: -300px; /* Initially hidden */
-    width: 300px;
+    right: -320px;
+    width: 320px;
     height: 100%;
-    background-color: #fff;
-    box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.2);
-    transition: right 0.3s ease-in-out;
-    overflow-y: auto;
-    padding: 20px;
+    background-color: var(--surface-color);
+    box-shadow: -5px 0px 30px rgba(0, 0, 0, 0.1);
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2000;
+    padding: 24px;
+    box-sizing: border-box;
   }
   
   .drawer.open {
-    right: 0; /* Slide in */
+    right: 0;
   }
-  
-  /* Login Form */
-  .login-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px; /* Space between form elements */
-    max-width: 300px;
-    margin: 0 auto; /* Center the form */
-  }
-  
-  .login-form label {
-    font-weight: bold;
-  }
-  
-  .login-form input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  
-  .login-form button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .error-message {
-    color: var(--error-color);
-    margin-bottom: 10px;
-  }
-  
-  /* Content Container */
-  .content-container {
-      flex: 1; /* Take up remaining space */
-      padding: 20px;
-  }
-  
-  .cart-icon-button {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-  }
->>>>>>> c3b8893 (Nettoyage MenuList.js : notifications globales, suppression Snackbar local, imports propres)
-  

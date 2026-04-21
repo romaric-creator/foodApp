@@ -1,0 +1,34 @@
+name: Gourmi IQ Core - CI/CD Strategy
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Dependencies
+        run: cd backend && npm install
+      - name: Run Integration & Security Tests
+        run: cd backend && npm test
+
+  frontend-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Dependencies
+        run: cd frontend && npm install
+      - name: Run UI Unit Tests
+        run: cd frontend && npm test -- --watchAll=false

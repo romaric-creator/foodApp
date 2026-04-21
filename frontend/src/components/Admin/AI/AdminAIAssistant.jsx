@@ -26,10 +26,85 @@ import {
   QueryStats as StatsIcon,
   Lightbulb as IdeaIcon,
   BusinessCenter as BusinessIcon,
-  SupportAgent as SupportIcon
+  SupportAgent as SupportIcon,
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title as ChartTitle, Tooltip as ChartTooltip, Legend, ArcElement } from 'chart.js';
+import { Bar, Line, Pie } from 'react-chartjs-2';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import jsPDF from 'jspdf';
 import { sendAdminChatMessage } from '../../../services/aiService';
 import api from '../../../config/api';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ChartTitle, ChartTooltip, Legend, ArcElement);
+
+const ChatChart = ({ type, data, options }) => {
+  const containerStyle = { width: '100%', maxWidth: '400px', margin: '12px 0' };
+  const muiOptions = { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#666', font: { size: 10 } } } }, ...options };
+  return <Box sx={containerStyle}>{type === 'bar' ? <Bar data={data} options={muiOptions} /> : type === 'line' ? <Line data={data} options={muiOptions} /> : <Pie data={data} options={muiOptions} />}</Box>;
+};
+
+const extractAttribute = (attrs, name) => {
+  const match = attrs.match(new RegExp(`${name}=['"]?([^'">\\s]+)['"]?`));
+  return match ? match[1] : null;
+};
+
+const renderMessageContent = (content) => {
+  const elements = [];
+  const tagRegex = /<(CHART|EXPORT)([\s\S]*?)\/>/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = tagRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(<ReactMarkdown key={`md-${lastIndex}`} remarkPlugins={[remarkGfm]}>{content.slice(lastIndex, match.index)}</ReactMarkdown>);
+    }
+    const tagName = match[1];
+    const tagAttributes = match[2];
+
+    if (tagName === 'CHART') {
+      try {
+        const chartType = extractAttribute(tagAttributes, 'type');
+        const dataStr = extractAttribute(tagAttributes, 'data');
+        if (chartType && dataStr) {
+          let chartData;
+          try { chartData = JSON.parse(dataStr.replace(/'/g, '"')); } catch { chartData = null; }
+          elements.push(
+            <Box key={`chart-${match.index}`} sx={{ my: 2, p: 2, bgcolor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,143,0,0.2)', borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ color: primaryOchre, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                Visualisation · {chartType}
+              </Typography>
+              {chartData ? <ChatChart type={chartType} data={chartData} /> : <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)' }}>Données graphiques non valides.</Typography>}
+            </Box>
+          );
+        }
+      } catch(e) { console.warn('CHART parse error:', e); }
+    } else if (tagName === 'EXPORT') {
+      const typeAttr = extractAttribute(tagAttributes, 'type');
+      if (typeAttr) {
+        const reportType = typeAttr.replace(/_/g, ' ');
+        elements.push(
+          <Box key={`export-${match.index}`} sx={{ my: 2, p: 2, background: 'linear-gradient(135deg, rgba(255,143,0,0.12) 0%, rgba(191,54,12,0.08) 100%)', border: '1px solid rgba(255,143,0,0.25)', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <PdfIcon sx={{ fontSize: '1.5rem', color: primaryOchre }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 700 }}>Rapport : {reportType}</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>Cliquez pour télécharger</Typography>
+            </Box>
+            <Button variant="contained" size="small" onClick={() => { const doc = new jsPDF(); doc.text(content.replace(/<[^>]+>/g, ''), 10, 20); doc.save(`${reportType}_${Date.now()}.pdf`); }} sx={{ bgcolor: primaryOchre, '&:hover': { bgcolor: darkOchre } }}>PDF</Button>
+          </Box>
+        );
+      }
+    }
+    lastIndex = tagRegex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    elements.push(<ReactMarkdown key={`md-${lastIndex}`} remarkPlugins={[remarkGfm]}>{content.slice(lastIndex)}</ReactMarkdown>);
+  }
+
+  return elements.length > 0 ? elements : <ReactMarkdown>{content}</ReactMarkdown>;
+};
 
 const AdminAIAssistant = () => {
   const [open, setOpen] = useState(false);
@@ -40,7 +115,6 @@ const AdminAIAssistant = () => {
   const messagesEndRef = useRef(null);
   const theme = useTheme();
 
-  // Thème Premium Ocre / Noir Profond
   const primaryOchre = '#FF8F00';
   const darkOchre = '#BF360C';
 
@@ -274,17 +348,14 @@ const AdminAIAssistant = () => {
                       border: msg.role === 'User' ? '1px solid rgba(255,255,255,0.1)' : 'none',
                     }}
                   >
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
+                    <Box sx={{ 
                         lineHeight: 1.7, 
                         fontSize: '0.95rem', 
                         fontWeight: msg.role === 'Assistant' ? 500 : 400,
-                        fontFamily: msg.content.includes('SELECT') ? 'Consolas, monospace' : 'inherit',
-                      }}
-                    >
-                      {msg.content}
-                    </Typography>
+                        fontFamily: msg.content.includes('<SQL>') ? 'Consolas, monospace' : 'inherit',
+                      }}>
+                      {renderMessageContent(msg.content)}
+                    </Box>
                   </Paper>
                   <Typography variant="caption" sx={{ mt: 1, opacity: 0.5, letterSpacing: 1, textTransform: 'uppercase', fontSize: '0.6rem', fontWeight: 700 }}>
                     {msg.role === 'Assistant' ? 'Intelligence' : 'Admin'}
@@ -349,6 +420,20 @@ const AdminAIAssistant = () => {
             0%, 100% { transform: scale(0.6); opacity: 0.3; }
             50% { transform: scale(1.1); opacity: 1; }
           }
+          .markdown-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+          .markdown-content th, .markdown-content td { border: 1px solid rgba(255,143,0,0.2); padding: 8px 12px; text-align: left; }
+          .markdown-content th { background: rgba(255,143,0,0.1); color: #FF8F00; }
+          .markdown-content h1 { color: #FF8F00; font-size: 1.2rem; font-weight: 900; margin: 16px 0 8px; border-bottom: 1px solid rgba(255,143,0,0.2); }
+          .markdown-content h2 { color: #FFB74D; font-size: 1rem; fontWeight: 700; margin: 14px 0 6px; }
+          .markdown-content h3 { color: #FFCC80; font-size: 0.9rem; fontWeight: 600; margin: 12px 0 4px; }
+          .markdown-content p { marginBottom: 8px; line-height: 1.6; color: inherit; }
+          .markdown-content ul, .markdown-content ol { padding-left: 20px; marginBottom: 8px; }
+          .markdown-content li { marginBottom: 4px; }
+          .markdown-content code { background: rgba(0,0,0,0.3); padding: 2px 6px; borderRadius: 4px; font-family: Consolas, monospace; }
+          .markdown-content pre { background: rgba(0,0,0,0.3); padding: 12px; borderRadius: 8px; overflow-x: auto; }
+          .markdown-content pre code { background: none; padding: 0; }
+          .markdown-content strong { color: #FF8F00; fontWeight: 700; }
+          .markdown-content blockquote { border-left: 3px solid #FF8F00; padding-left: 12px; margin: 12px 0; color: rgba(255,255,255,0.7); font-style: italic; }
         `}</style>
       </Drawer>
     </>

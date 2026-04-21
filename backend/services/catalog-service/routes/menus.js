@@ -69,7 +69,7 @@ router.get('/:id', async (req, res) => {
 // Créer un menu (admin seulement)
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, description, price, image_url, idCat } = req.body;
+    const { name, description, price, image_url, idCat, stock_quantity, is_available } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ error: 'Le nom et le prix sont requis' });
@@ -78,9 +78,11 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     const newMenu = await Menu.create({
       name,
       description: description || null,
-      price,
+      price: parseFloat(price) || 0,
       image_url: image_url || null,
-      idCat: idCat || null
+      idCat: idCat || null,
+      stock_quantity: parseInt(stock_quantity) || 0,
+      is_available: is_available !== undefined ? is_available : true
     });
 
     res.status(201).json({
@@ -93,6 +95,8 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       image: newMenu.image_url,
       image_url: newMenu.image_url,
       idCat: newMenu.idCat,
+      stock_quantity: newMenu.stock_quantity,
+      is_available: newMenu.is_available,
       created_at: newMenu.created_at
     });
   } catch (error) {
@@ -105,7 +109,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const menuId = req.params.id;
-    const { name, description, price, image_url, idCat } = req.body;
+    const { name, description, price, image_url, idCat, stock_quantity, is_available } = req.body;
 
 
 
@@ -121,6 +125,8 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (price !== undefined) updates.price = price;
     if (image_url !== undefined) updates.image_url = image_url;
     if (idCat !== undefined) updates.idCat = idCat;
+    if (stock_quantity !== undefined) updates.stock_quantity = stock_quantity;
+    if (is_available !== undefined) updates.is_available = is_available;
 
     await menu.update(updates);
 
@@ -134,6 +140,8 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       image: menu.image_url,
       image_url: menu.image_url,
       idCat: menu.idCat,
+      stock_quantity: menu.stock_quantity,
+      is_available: menu.is_available,
       created_at: menu.created_at
     });
   } catch (error) {

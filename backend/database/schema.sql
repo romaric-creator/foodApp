@@ -91,3 +91,15 @@ VALUES (1, 'light', '#FF6B6B', '#4ECDC4');
 -- Insertion du paramètre de thème par défaut
 INSERT IGNORE INTO theme_settings (id, `primary`, `secondary`, `background`)
 VALUES (1, '#0e0c2b', '#7842af', '#e6dce4');
+
+-- Table pour l'historique des conversations IA
+CREATE TABLE IF NOT EXISTS ai_conversations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  idUsers INT NOT NULL,
+  role VARCHAR(20) NOT NULL,
+  content TEXT NOT NULL,
+  sessionId VARCHAR(100) DEFAULT 'default',
+  sessionTitle VARCHAR(255) DEFAULT 'Nouvelle discussion',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (idUsers) REFERENCES users(idUsers) ON DELETE CASCADE
+);

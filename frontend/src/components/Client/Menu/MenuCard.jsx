@@ -12,26 +12,25 @@ const formatPrice = (price) => {
 
 const MenuCard = ({ menu, onAddToCart, onShowIngredients }) => {
   const theme = useTheme();
-  const orangeColor = theme.palette.orange?.main || "#FF9800";
+  const primaryColor = theme.palette.primary.main;
 
   return (
     <Card sx={{
       display: 'flex',
       flexDirection: 'row',
-      height: '140px',
+      height: '120px',
       mb: 2,
-      borderRadius: 4,
+      borderRadius: '20px',
       overflow: 'hidden',
-      boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
-      border: '1px solid',
-      borderColor: alpha(theme.palette.divider, 0.05),
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+      border: '1px solid rgba(0,0,0,0.03)',
+      transition: 'all 0.3s ease',
       '&:hover': {
-        transform: 'translateY(-4px) scale(1.02)',
-        boxShadow: '0 15px 30px rgba(0,0,0,0.1)',
+        transform: 'translateY(-2px)',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.1)',
       }
     }}>
-      <Box sx={{ position: 'relative', width: '130px', minWidth: '130px' }}>
+      <Box sx={{ position: 'relative', width: '120px', minWidth: '120px' }}>
         <CardMedia
           component="img"
           sx={{
@@ -42,27 +41,20 @@ const MenuCard = ({ menu, onAddToCart, onShowIngredients }) => {
           image={menu.image_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80"}
           alt={menu.name}
         />
-        <Box sx={{
-          position: 'absolute',
-          top: 8,
-          left: 8,
-          bgcolor: 'rgba(255,255,255,0.9)',
-          borderRadius: '50%',
-          width: 32,
-          height: 32,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <IconButton 
-            size="small"
-            onClick={() => onShowIngredients(menu.idMenu, menu.description, menu.image_url)}
-            sx={{ color: 'text.secondary' }}
-          >
-            <InfoIcon fontSize="small" />
-          </IconButton>
-        </Box>
+        <IconButton 
+          size="small"
+          onClick={() => onShowIngredients(menu.idMenu, menu.description, menu.image_url)}
+          sx={{ 
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            bgcolor: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(4px)',
+            '&:hover': { bgcolor: 'white' }
+          }}
+        >
+          <InfoIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+        </IconButton>
       </Box>
 
       <Box sx={{ 
@@ -70,36 +62,36 @@ const MenuCard = ({ menu, onAddToCart, onShowIngredients }) => {
         flexDirection: 'column', 
         justifyContent: 'center',
         flex: 1,
-        p: 2,
-        gap: 0.5
+        p: 1.5,
+        gap: 0.2
       }}>
         <Typography 
           variant="subtitle1" 
           sx={{ 
             fontWeight: 800,
+            fontSize: '1rem',
             color: 'text.primary',
-            fontSize: '1.05rem',
             lineHeight: 1.2,
-            mb: 0.5
+            mb: 0.3
           }}
         >
           {menu.name}
         </Typography>
         
         <Typography 
-          variant="body2" 
+          variant="caption" 
           color="text.secondary"
           sx={{ 
-            fontSize: '0.85rem',
+            fontSize: '0.75rem',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             mb: 1,
-            lineHeight: 1.3
+            opacity: 0.8
           }}
         >
-          {menu.description || "Une délicieuse spécialité de la maison préparée avec soin."}
+          {menu.description || "Délicieuse spécialité préparée avec soin."}
         </Typography>
 
         <Box sx={{ 
@@ -109,34 +101,33 @@ const MenuCard = ({ menu, onAddToCart, onShowIngredients }) => {
           mt: 'auto'
         }}>
           <Typography 
-            variant="h6" 
+            variant="subtitle1" 
             sx={{ 
               fontWeight: 900,
-              color: orangeColor,
-              fontSize: '1.2rem'
+              color: primaryColor,
+              fontSize: '1.1rem'
             }}
           >
-            {formatPrice(menu.price)} <Box component="span" sx={{ fontSize: '0.7rem' }}>FCFA</Box>
+            {formatPrice(menu.price)} <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>FCFA</Box>
           </Typography>
 
           <Button
             variant="contained"
             onClick={() => onAddToCart(menu)}
-            size="small"
             sx={{
-              minWidth: '40px',
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
+              minWidth: '36px',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
               p: 0,
-              bgcolor: orangeColor,
+              bgcolor: primaryColor,
+              boxShadow: `0 4px 12px ${alpha(primaryColor, 0.3)}`,
               '&:hover': {
-                bgcolor: theme.palette.orange?.dark || '#EF6C00',
+                bgcolor: theme.palette.primary.dark,
               },
-              boxShadow: `0 4px 12px ${alpha(orangeColor, 0.4)}`
             }}
           >
-            <AddIcon sx={{ fontSize: 24 }} />
+            <AddIcon sx={{ fontSize: 20 }} />
           </Button>
         </Box>
       </Box>
